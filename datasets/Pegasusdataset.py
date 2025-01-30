@@ -171,7 +171,7 @@ class Pegasus(Sequence):
         :param exp_path: Path to the pickle file containing orientation data.
         :param rotation_type: The type of rotation within the pickle file (AirIMU corrected orientation / raw imu Pre-integration).
         """
-        if exp_path is None or rotation_type is None or rotation_type.lower() == "gtrot":
+        if rotation_type is None or rotation_type == "None" or rotation_type.lower() == "gtrot":
             return
         try:
             with open(exp_path, 'rb') as file:

@@ -98,8 +98,6 @@ class CodeNetMotionwithRot(CodeNetMotion):
         x2 = self.ori_encoder(ori.transpose(-1,-2)).transpose(-1, -2) 
         x = torch.cat([x1, x2], dim = -1)
         
-        x = self.fcn1(x)
-        x = self.batchnorm1(x.transpose(-1,-2)).transpose(-1,-2)
         x = self.fcn2(x)
         x = self.batchnorm2(x.transpose(-1,-2)).transpose(-1,-2)
         x = self.gelu(x)
