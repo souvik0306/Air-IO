@@ -11,9 +11,11 @@
 ### Download Datasets
 Euroc dataset: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
 
-Blackbird dataset: http://blackbird-dataset.mit.edu/BlackbirdDatasetData/
+Blackbird dataset:  
+- Download from the official dataset website: http://blackbird-dataset.mit.edu/BlackbirdDatasetData/
+- Download the specific sequences used in our work: [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/Blackbird.zip)
 
-Our custom simulation Pegasus datasets: [here]()
+Our custom simulation Pegasus datasets: [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/PegasusDataset.zip)
 
 ### Get Pre-trained models & results
 | Datasets               | AirIO Pre-trained Models & Results| AirIMU Pre-trained Models & Results | 
