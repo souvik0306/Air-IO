@@ -1,5 +1,4 @@
-# <div align="center">AirIO: Learning Inertial Odometry with Enhanced<br/> IMU Feature Observability<br/>[![Homepage](https://img.shields.io/badge/Homepage-4385f4?style=flat&logo=googlehome&logoColor=white)](https://air-io.github.io/) [![arXiv](https://img.shields.io/badge/arXiv-b31b1b?style=flat&logo=arxiv&logoColor=white)](http://arxiv.org/abs/2501.15659) [![YouTube](https://img.shields.io/badge/YouTube-ff0000?style=flat&logo=youtube&logoColor=white)]() [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-yellow.svg)](./LICENSE) 
-
+# <div align="center">AirIO: Learning Inertial Odometry with Enhanced<br/> IMU Feature Observability<br/>[![Homepage](https://img.shields.io/badge/Homepage-4385f4?style=flat&logo=googlehome&logoColor=white)](https://air-io.github.io/) [![arXiv](https://img.shields.io/badge/arXiv-b31b1b?style=flat&logo=arxiv&logoColor=white)](http://arxiv.org/abs/2501.15659) [![YouTube](https://img.shields.io/badge/YouTube-ff0000?style=flat&logo=youtube&logoColor=white)]()
 ![Introduction](img/blackbird_github.gif)
 
 ## 📦 Installation & Dataset Setup  
