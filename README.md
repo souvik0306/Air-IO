@@ -16,11 +16,11 @@ Blackbird dataset: http://blackbird-dataset.mit.edu/BlackbirdDatasetData/
 Our custom simulation Pegasus datasets: [here]()
 
 ### Get Pre-trained models & results
-| Datasets               | Pre-trained Models | AirIMU Results | 
+| Datasets               | AirIO Pre-trained Models & Results| AirIMU Pre-trained Models & Results | 
 | :----------------: | :------: | :----: |
-| EuRoC       |  [AirIO Model]()   | [Results]()    [Orientations]()|
-| Blackbird           |   [AirIO Model]()  | [Results]()    [Orientations]()|
-| Pegasus    |  [AirIO Model]()   | [Results]()    [Orientations]()|
+| EuRoC       |  [AirIO Model](https://github.com/Air-IO/Air-IO/releases/download/AirIO/AirIO_EuRoC.zip)   | [AirIMU](https://github.com/Air-IO/Air-IO/releases/download/AirIMU/AirIMU_EuRoC.zip)|
+| Blackbird           |   [AirIO Model](https://github.com/Air-IO/Air-IO/releases/download/AirIO/AirIO_Blackbird.zip)  | [AirIMU](https://github.com/Air-IO/Air-IO/releases/download/AirIMU/AirIMU_blackbird.zip)|
+| Pegasus    |  [AirIO Model](https://github.com/Air-IO/Air-IO/releases/download/AirIO/AirIO_Pegasus.zip)   | [AirIMU](https://github.com/Air-IO/Air-IO/releases/download/AirIMU/AirIMU_pegasus.zip)|
 
 Each AirIMU Results pickle file contains raw IMU correction; 
 
@@ -37,7 +37,7 @@ To start training with the default configuration file:
 python train_motion.py --config configs/EuRoC/motion_body_rot.conf
 ```
 > [!NOTE]  
-> Remember to reset the `data_root` in `configs/datasets/EuRoC/Euroc_body.conf` to your EuRoC dataset directory."
+> Remember to reset the `data_root` in `configs/datasets/EuRoC/Euroc_body.conf` to your EuRoC dataset directory.
 
 ### Run Inference
 To perform inference using the default configuration file:
@@ -82,7 +82,7 @@ python evaluation/evaluate_ekf.py \
 ### Modifying Configuration files
 Setting two types of configuration files before training: the config file for datasets and the training parameters.
 
-You can place your custom dataset config file in the ```configs/datasets/YOUR_CUSTOM_DATASET/``` direction and the training config file in the ```configs/YOUR_CUSTOM_DATASET/ directory```.
+You can place your custom dataset config file in the ```configs/datasets/YOUR_CUSTOM_DATASET/``` directory and the training config file in the ```configs/YOUR_CUSTOM_DATASET/``` directory.
 ```plaintext
 └── configs/
     ├── datasets # Dataset configurations
