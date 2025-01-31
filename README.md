@@ -5,8 +5,7 @@
 ### Environment Installation
  See `requirements.txt` for environment requirements. 
  
-> [!NOTE]
-> This work is based on pypose. For installation and advanced usage, follow the official PyPose instructions [here](https://github.com/pypose/pypose).
+This work is based on pypose. For installation and advanced usage, follow the official PyPose instructions [here](https://github.com/pypose/pypose).
 
 ### Download Datasets
 Euroc dataset: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
@@ -18,17 +17,20 @@ Blackbird dataset:
 Our custom simulation Pegasus datasets: [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/PegasusDataset.zip)
 
 ### Get Pre-trained models & results
+
+> [!NOTE]
+> To run the EKF, you need to download the AirIMU results for IMU preintegration to provide integration and uncertainty. 
+> We also provide a conventional mode that uses ground truth orientation as input, which can be used if you just want to test the network.
+
 | Datasets               | AirIO Pre-trained Models & Results| AirIMU Pre-trained Models & Results | 
 | :----------------: | :------: | :----: |
 | EuRoC       |  [AirIO Model](https://github.com/Air-IO/Air-IO/releases/download/AirIO/AirIO_EuRoC.zip)   | [AirIMU](https://github.com/Air-IO/Air-IO/releases/download/AirIMU/AirIMU_EuRoC.zip)|
 | Blackbird           |   [AirIO Model](https://github.com/Air-IO/Air-IO/releases/download/AirIO/AirIO_Blackbird.zip)  | [AirIMU](https://github.com/Air-IO/Air-IO/releases/download/AirIMU/AirIMU_blackbird.zip)|
 | Pegasus    |  [AirIO Model](https://github.com/Air-IO/Air-IO/releases/download/AirIO/AirIO_Pegasus.zip)   | [AirIMU](https://github.com/Air-IO/Air-IO/releases/download/AirIMU/AirIMU_pegasus.zip)|
 
-Each AirIMU Results pickle file contains raw IMU correction; 
+Each AirIMU Results pickle file contains raw IMU correction; Each Orientations pickle file contains two critical keys: `airimu_rot` for AirIMU-corrected orientation, `inte_rot` for raw IMU integrated orientation.
 
-Each Orientations pickle file contains two critical keys: `airimu_rot` for AirIMU-corrected orientation, `inte_rot` for raw IMU integrated orientation.
-
-Find more details about AirIMU in [here](https://airimu.github.io/)
+If you want to train a your own model for AirIMU please check [https://airimu.github.io](https://airimu.github.io/)
 
 ## 🚀 Quick Start: Run with Default Configurations
 Immediately test the pipeline using pre-defined settings. 
