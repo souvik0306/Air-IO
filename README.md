@@ -179,6 +179,7 @@ To add a custom dataset, you need to create a new dataset class in ```datasets/_
 The dataset should provide the following features in self.data
 ```python
 self.data = {
+    "dt": time intervals,
     "time": timestamps,
     "acc": accelerometer_data, # body-frame tensor
     "gyro": gyroscope_data, # body-frame tensor
@@ -189,7 +190,6 @@ self.data = {
 ```
 **2. Subsequent Steps** 
 
-
 After loading and interpolating the data, using the following functions to prepare the dataset for training or evaluation:
 ```python
 # Set orientation
@@ -199,11 +199,10 @@ self.set_orientation(rot_path, data_name, rot_type) # Load orientation data acco
 self.update_coordinate(coordinate, mode) # Perform body-frame or global-frame representation according to the dataset config file
 
 # Remove Gravity term
-self.remove_gravity(remove_g) # Remove the gravity component from accelerometer data if required.
+self.remove_gravity(remove_g) # Remove the gravity component from accelerometer data if required in the dataset config file.
 ```
 
-**3. Modifying new network architectures**
-
+### Modifying new network architectures
 
 Open ```model/code.py```
 - You can modify the network class (e.g., CodeNetMotion or CodeNetMotionwithRot). 
