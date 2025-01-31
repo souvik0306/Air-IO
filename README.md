@@ -40,8 +40,7 @@ To start training with the default configuration file:
 ```
 python train_motion.py --config configs/EuRoC/motion_body_rot.conf
 ```
-> [!NOTE]  
-> Remember to reset the `data_root` in `configs/datasets/EuRoC/Euroc_body.conf` to your EuRoC dataset directory.
+Remember to reset the `data_root` in `configs/datasets/EuRoC/Euroc_body.conf` to your EuRoC dataset directory.
 
 ### Run Inference
 To perform inference using the default configuration file:
@@ -49,6 +48,11 @@ To perform inference using the default configuration file:
 python inference_motion.py --config configs/EuRoC/motion_body_rot.conf
 ```
 Network predictions will be saved as a `net_output.pickle` file
+> [!NOTE]
+> AirIO network supports three orientation input modes: \
+> **Default**: using Ground-truth orientation (no setup required) \
+> **Switch modes**: modify the ```rot_type``` and ```rot_path``` in the dataset config file ```configs/datasets/EuRoC/Euroc_body.conf```. You can use AirIMU-corrected Orientation (```rot_type: airimu```)  or raw IMU preintegration orientation (```rot_type: integration```). Download precomputed rotation files (e.g. orientation_output.pickle) from the Download Datasets section and update the ```rot_path```.
+
 
 ### Evaluate & Visualize Network Predictions
 Run the following command to assess the network's motion estimation and plot the trajectories:
