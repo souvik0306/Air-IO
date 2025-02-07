@@ -1,9 +1,7 @@
 import os
 import torch
 import io, pickle
-import simplekml
 import numpy as np
-from pyproj import Proj, transform
 from inspect import currentframe, getframeinfo
 import wandb
 from scipy.spatial.transform import Rotation as R
@@ -19,16 +17,6 @@ def save_state(out_states:dict, in_state:dict):
             out_states[k].append(v)
         else:
             out_states[k] = [v]
-
-def trans_ecef2wgs(traj):
-    # Define the coordinate reference systems
-    ecef = Proj(proj='geocent', ellps='WGS84', datum='WGS84')
-    wgs84 = Proj(proj='latlong', datum='WGS84')
-
-    # Convert ECEF coordinates to geographic coordinates
-    trajectory_geo = [transform(ecef, wgs84, x, y, z, radians=False) for x, y, z in traj]
-
-    return trajectory_geo
 
 def Gaussian_noise(num_nodes, sigma_x=0.05 ,sigma_y=0.05, sigma_z=0.05):
     std = torch.stack([torch.ones(num_nodes)*sigma_x, torch.ones(num_nodes)*sigma_y, torch.ones(num_nodes)*sigma_z], dim=-1)
@@ -89,38 +77,6 @@ def lookAt(dir_vec, up = torch.tensor([0.,0.,1.], dtype=torch.float64), source =
     ])
 
     return m
-
-def save_traj_kml(trajs, traj_names, colors, save_path='traj.kml'):
-    """
-    save the trajectory in kml format
-    Input:
-        trajs: list of trajectories, each trajectory is a numpy array of shape (N,3)
-        traj_names: list of trajectory names
-        colors: list of colors for each trajectory
-        save_path: path to save the kml file
-    Example:
-        trajs = [np.random.randn(100,3), np.random.randn(100,3)]
-        traj_names = ['traj1', 'traj2']
-        colors = ['ff0000ff', simplekml.Color.yellow]
-    """
-    kml = simplekml.Kml()
-    for traj, traj_name, color in zip(trajs, traj_names, colors):
-        wgs_traj = trans_ecef2wgs(traj)
-
-        linestring = kml.newlinestring(name=traj_name)
-        linestring.coords = wgs_traj
-        linestring.altitudemode = simplekml.AltitudeMode.relativetoground
-        linestring.extrude = 1
-        linestring.style.linestyle.width = 3
-        linestring.style.linestyle.color = color # 'ff0000ff'
-
-        pnt = kml.newpoint(name=traj_name)
-        pnt.coords = wgs_traj[-1:]
-        pnt.style.labelstyle.color = color
-        pnt.style.labelstyle.scale = 2
-        print(traj_name, 'done')
-    print('start saving', save_path)
-    kml.save(save_path)
 
 def cat_state(in_state:dict):
     pop_list = []
