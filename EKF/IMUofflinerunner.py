@@ -203,7 +203,6 @@ if __name__ == '__main__':
             
             # STEO 2 covariance initialization
             # the uncertainty of the initial state
-            EKF_runner(model)
             io_index = 0
             air_imu_index = 0 
             gt_state = {"pos": [], "vel": [], "rot": []}
