@@ -8,13 +8,21 @@
 This work is based on pypose. For installation and advanced usage, follow the official PyPose instructions [here](https://github.com/pypose/pypose).
 
 ### Download Datasets
-Euroc dataset: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
+**Euroc dataset:** 
+- Download from the official dataset website: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
+> [!NOTE]
+> Due to the original sequence V101 potentially having an error in its orientation estimate, we use the recalibrated version from OpenVINS. You can download the recomputed V101 groundtruth data [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/V101-state_groundtruth_estimate0.zip)
 
-Blackbird dataset:  
+- If you only need IMU and groundtruth, download our simplified version [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/EuRoC-Dataset.zip)
+
+
+
+
+**Blackbird dataset:**
 - Download from the official dataset website: http://blackbird-dataset.mit.edu/BlackbirdDatasetData/
 - Download the specific sequences used in our work: [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/Blackbird.zip)
 
-Our custom simulation Pegasus datasets: [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/PegasusDataset.zip)
+**Our custom simulation Pegasus datasets:** [here](https://github.com/Air-IO/Air-IO/releases/download/datasets/PegasusDataset.zip)
 
 ### Get Pre-trained models & results
 
