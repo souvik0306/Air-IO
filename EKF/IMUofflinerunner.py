@@ -267,12 +267,9 @@ if __name__ == '__main__':
             interp_net_vel = dataset_inf.data["gt_orientation"] @ interp_net_vel
             interp_net_vel = interp_net_vel[:len(ekf_result)].numpy()
             
-            pos_dist = (gtpos - ekf_result[:, 6:9]).norm(dim=-1)
-            print(f"ATE(EKF): {torch.sqrt((pos_dist**2).mean()).item()}")
-            
+            pos_dist = (gtpos - ekf_result[:, 6:9]).norm(dim=-1)      
             ekf_vel_dist = (gtvel - ekf_result[:, 3:6]).norm(dim=-1)
             net_vel_dist = (gtvel-interp_net_vel).norm(dim=-1)
-            print(f"AVE(Net): {torch.sqrt((net_vel_dist**2).mean()).item()}, AVE(EKF): {torch.sqrt((ekf_vel_dist**2).mean()).item()}")
 
             plot_bias_subplots(ekf_result[:, 9:12], title="EKF Bias", save_path=os.path.join(folder, f"{data_name}_bias.png"))
             visualize_rotations(f"EKF_rot_{data_name}", gtrot, pp.so3(ekf_result[:, :3]).Exp(), save_folder=folder)
