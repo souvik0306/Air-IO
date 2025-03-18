@@ -88,7 +88,7 @@ class IMUEKF(nn.Module):
         P = A @ P @ A.mT + B @ Q @ B.mT
 
         K = P @ C.mT @ pinv(C @ P @ C.mT + R) # 3. Kalman gain
-        e = obs - bmv(C, state) - bmv(D, input) - c2    #    predicted observation error
+        e = obs - self.model.observation(state, input, dt, t=t)    #    predicted observation error
         
         xp = xp + bmv(K, e)                     # 4. Posteriori state
         # P = (I - K @ C) @ P                   # 5. Posteriori covariance
