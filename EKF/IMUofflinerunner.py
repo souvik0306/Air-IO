@@ -42,10 +42,9 @@ class SingleIMU(IMUstate):
         Don't add noise in this function, as it will be used for automatically
         linearizing the system by the parent class ``pp.module.NLS``.
         '''
-        # breakpoint()
         init_rot = pp.so3(state[..., :3]).Exp()
-        bg = state[..., 9:12]
-        ba = state[..., 12:15]
+        bg = input[..., 6:9]
+        ba = input[..., 9:12]
 
         w = (input[..., 0:3]-bg)
         a = (input[..., 3:6] - init_rot.Inv() @ self.gravity.double() -  ba)
@@ -56,7 +55,7 @@ class SingleIMU(IMUstate):
         V = state[..., 3:6] + init_rot @ Dv # R imu->world 
         P = state[..., 6:9] + state[..., 3:6] * dt + init_rot @ Dp
 
-        return torch.cat([R, V, P, ba, bg], dim=-1).tensor()
+        return torch.cat([R, V, P, bg, ba], dim=-1).tensor()
 
     def observation(self, state, input, dt, t=None):
         '''
@@ -145,6 +144,10 @@ if __name__ == '__main__':
     config = ConfigFactory.parse_file(args.dataconf)
     dataset_conf = config.inference
     print(dataset_conf.keys())
+
+    bias_weight = 1e-12
+    input_weight = 1e2
+    obs_weight = 1e-1
     
     if args.exp is not None:
         net_result_path = os.path.join(args.exp, 'net_output.pickle')
@@ -165,7 +168,7 @@ if __name__ == '__main__':
         
     folder = args.savedir
     os.makedirs(folder, exist_ok=True)
-    
+
     for data_conf in dataset_conf.data_list:
         print(data_conf)
         for data_name in data_conf.data_drive:
@@ -175,11 +178,7 @@ if __name__ == '__main__':
             infloader = Data.DataLoader(dataset=dataset_inf, batch_size=1, 
                                             collate_fn=imu_seq_collate, 
                                             shuffle=False, drop_last=True)
-
-            # dataset = SeqDataset(data_conf.data_root, data_name, args.device, name = data_conf.name, duration=1, step_size=1, drop_last=False, conf = dataset_conf)
-            
-            sequential_dataset = SeqDataset(data_conf.data_root, data_name, args.device, name = data_conf.name, duration=1, step_size=1, drop_last=False, conf = dataset_conf)
-            
+    
             init = dataset_inf.get_init_value()
             gravity = dataset_inf.get_gravity()
             integrator_outstate = pp.module.IMUPreintegrator(
@@ -215,13 +214,13 @@ if __name__ == '__main__':
                 
                 # STEP 2 add the learned uncertainty
                 r = torch.ones(3, dtype=torch.float64) * 0.001
-                q = torch.ones(12, dtype=torch.float64) *  0.01
+                q = torch.ones(12, dtype=torch.float64) *  bias_weight
                 q[:3] = data["gyro_cov"][0]
-                q[3:6] = data["acc_cov"][0]
+                q[3:6] = data["acc_cov"][0] * input_weight
                 
                 if io_stamp - data["timestamp"].abs() < 0.001:
                     observation = io_result["net_vel"][io_index]
-                    r[:3] = io_result["cov"][0][io_index] * 0.1 ## Modify the scaling factor to balance uncertainties
+                    r[:3] = io_result["cov"][0][io_index] * obs_weight ## Modify the scaling factor to balance uncertainties
                     io_index+=1
                 else:
                     observation = None
@@ -268,6 +267,10 @@ if __name__ == '__main__':
             interp_net_vel = dataset_inf.data["gt_orientation"] @ interp_net_vel
             interp_net_vel = interp_net_vel[:len(ekf_result)].numpy()
             
+            pos_dist = (gtpos - ekf_result[:, 6:9]).norm(dim=-1)      
+            ekf_vel_dist = (gtvel - ekf_result[:, 3:6]).norm(dim=-1)
+            net_vel_dist = (gtvel-interp_net_vel).norm(dim=-1)
+
             plot_bias_subplots(ekf_result[:, 9:12], title="EKF Bias", save_path=os.path.join(folder, f"{data_name}_bias.png"))
             visualize_rotations(f"EKF_rot_{data_name}", gtrot, pp.so3(ekf_result[:, :3]).Exp(), save_folder=folder)
             visualize_velocity(f"EKF_vel_{data_name}", gtvel, ekf_result[:, 3:6], interp_net_vel, save_folder=folder)

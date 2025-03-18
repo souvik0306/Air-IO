@@ -60,7 +60,9 @@ if __name__ == '__main__':
             motion_dataset = SeqDataset(data_conf.data_root, data_name, args.device, name = data_conf.name, duration=args.seqlen, step_size=args.seqlen, drop_last=False, conf = dataset_conf)
             
             if args.exp is not None:
-                
+                if data_conf.name == "BlackBird":
+                    data_name = os.path.dirname(data_name).split('/')[1]
+
                 ekf_result = np.load(os.path.join(args.exp, data_name+"_ekf_result.npy"))
                 ekf_pos =torch.tensor(ekf_result[:,6:9])
                 
