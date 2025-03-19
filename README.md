@@ -38,7 +38,7 @@ This work is based on pypose. For installation and advanced usage, follow the of
 
 Each AirIMU Results pickle file contains raw IMU correction; Each Orientations pickle file contains two critical keys: `airimu_rot` for AirIMU-corrected orientation, `inte_rot` for raw IMU integrated orientation.
 
-If you want to train a your own model for AirIMU please check [https://airimu.github.io](https://airimu.github.io/)
+If you want to train your own model for AirIMU please check [https://airimu.github.io](https://airimu.github.io/)
 
 ## 🚀 Quick Start: Run with Default Configurations
 Immediately test the pipeline using pre-defined settings. 
@@ -46,37 +46,37 @@ Immediately test the pipeline using pre-defined settings.
 
 To start training with the default configuration file:
 ```
-python train_motion.py --config configs/EuRoC/motion_body_rot.conf
+python3 train_motion.py --config configs/BlackBird/motion_body_rot.conf [--log]
 ```
-Remember to reset the `data_root` in `configs/datasets/EuRoC/Euroc_body.conf` to your EuRoC dataset directory.
+Remember to reset the `data_root` in `configs/datasets/BlackBird/blackbird_body.conf` to your BlackBird dataset directory. Using `--log` disables wandb logging.
 
 ### Run Inference
 To perform inference using the default configuration file:
 ```
-python inference_motion.py --config configs/EuRoC/motion_body_rot.conf
+python3 inference_motion.py --config configs/BlackBird/motion_body_rot.conf
 ```
 Network predictions will be saved as a `net_output.pickle` file
 > [!NOTE]
 > AirIO network supports three orientation input modes: \
 > **Default**: using Ground-truth orientation (no setup required) \
-> **Switch modes**: modify the ```rot_type``` and ```rot_path``` in the dataset config file ```configs/datasets/EuRoC/Euroc_body.conf```. You can use AirIMU-corrected Orientation (```rot_type: airimu```)  or raw IMU preintegration orientation (```rot_type: integration```). Download precomputed rotation files (e.g. orientation_output.pickle) from the Download Datasets section and update the ```rot_path```.
+> **Switch modes**: modify the ```rot_type``` and ```rot_path``` in the dataset config file ```configs/datasets/BlackBird/blackbird_body.conf```. You can use AirIMU-corrected Orientation (```rot_type: airimu```)  or raw IMU preintegration orientation (```rot_type: integration```). Download precomputed rotation files (e.g. orientation_output.pickle) from the Download Datasets section and update the ```rot_path```.
 
 
 ### Evaluate & Visualize Network Predictions
 Run the following command to assess the network's motion estimation and plot the trajectories:
 ```
 python evaluation/evaluate_motion.py \
-    --dataconf configs/datasets/EuRoC/Euroc_body.conf \
-    --exp experiments/euroc/motion_body_rot \
-    --seqlen 1000
+    --dataconf configs/datasets/BlackBird/blackbird_body.conf \
+    --exp experiments/blackbird/motion_body_rot \
+    --seqlen 500
 ```
 `--seq` is the segment length (in frames) for RTE calculation
 
 ### EKF example
 ```
 python EKF/IMUofflinerunner.py \
-      --dataconf configs/datasets/EuRoC/Euroc_body.conf \
-      --exp experiments/euroc/motion_body_rot\
+      --dataconf configs/datasets/BlackBird/blackbird_body.conf \
+      --exp experiments/blackbird/motion_body_rot \
       --airimu_exp ${AirIMU_RESULT_PATH}
 ```
 EKF results will be saved as `${SEQUENCE_NAME}_ekf_poses.npy` and `${SEQUENCE_NAME}_ekf_results.npy`
@@ -85,7 +85,7 @@ EKF results will be saved as `${SEQUENCE_NAME}_ekf_poses.npy` and `${SEQUENCE_NA
 ### Evaluate & Visualize EKF Results
 ```
 python evaluation/evaluate_ekf.py \
-    --dataconf configs/datasets/EuRoC/Euroc_body.conf \
+    --dataconf configs/datasets/BlackBird/blackbird_body.conf \
     --exp EKFresult/loss_result \
     --seqlen 1000
 ```
@@ -140,7 +140,7 @@ train:
         name: YourCustomDataset    #  Corresponding to the dataset class. Create your own dataset class in datasets/_dataset.py
         window_size: 1000          #  The size of the data window is 1000 frames.
         step_size: 10              #  The window slides forward by 10 frames.
-        data_root: DATA_ROOT       #  Path to dataset (REPLACE THIS WITH YOUR DATASET DIRECTION)
+        data_root: DATA_ROOT       #  Path to dataset (REPLACE THIS WITH YOUR DATASET DIRECTORY)
         data_drive: [sequence_1, sequence_name_2] #  The dataset sequences to use for training. 
         },
     ]
