@@ -7,11 +7,9 @@ import json
 import argparse
 import numpy as np
 import pypose as pp
-import tqdm
 
 import torch
 import torch.utils.data as Data
-from utils import move_to
 
 from pyhocon import ConfigFactory
 from datasets import imu_seq_collate,SeqDataset

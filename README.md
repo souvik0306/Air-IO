@@ -38,7 +38,12 @@ This work is based on pypose. For installation and advanced usage, follow the of
 
 Each AirIMU Results pickle file contains raw IMU correction; Each Orientations pickle file contains two critical keys: `airimu_rot` for AirIMU-corrected orientation, `inte_rot` for raw IMU integrated orientation.
 
-If you want to train your own model for AirIMU please check [https://airimu.github.io](https://airimu.github.io/)
+If you want to train your model for AirIMU please check [https://airimu.github.io](https://airimu.github.io/).  
+If you need to create an Orientations pickle file for your AirIMU model, please run the following command using AirIMU outputs `net_output.pickle`:
+```
+python3 evaluation/save_ori.py --dataconf /path/to/your/dataset.conf --exp /path/to/your/AirIMU_net_output.pickle
+```
+
 
 ## 🚀 Quick Start: Run with Default Configurations
 Immediately test the pipeline using pre-defined settings. 

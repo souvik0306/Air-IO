@@ -187,7 +187,7 @@ class Pegasus(Sequence):
                 print(f"Unsupported rotation type: {rotation_type}")
                 raise ValueError(f"Unsupported rotation type: {rotation_type}")
         except FileNotFoundError:
-            print(f"The file {experiment_path} was not found.")
+            print(f"The file {exp_path} was not found.")
             raise
     
     def remove_gravity(self,remove_g):
