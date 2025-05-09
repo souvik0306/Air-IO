@@ -179,3 +179,7 @@ wandb
 .gitignore
 
 
+#casADI
+*.c 
+*.o
+.nfs*
