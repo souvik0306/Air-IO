@@ -56,7 +56,7 @@ def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=
     fig, axs = plt.subplots(
         3,
     )
-    fig.suptitle("integrated orientation")
+    fig.suptitle("Orientation Comparison")
     for i in range(3):
         axs[i].plot(outstate_euler[:, i], color="b", linewidth=0.9)
         axs[i].plot(gt_euler[:, i], color="mediumseagreen", linewidth=0.9)
@@ -78,6 +78,38 @@ def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=
     if save_folder is not None:
         plt.savefig(
             os.path.join(save_folder, save_prefix + "_orientation_compare.png"), dpi=300
+        )
+    plt.show()
+    plt.close()
+
+
+def visualize_velocity(save_prefix, gtstate, outstate, refstate=None, save_folder=None):
+    legend_list = ["x", "y", "z"]
+    fig, axs = plt.subplots(
+        3,
+    )
+    fig.suptitle("Velocity Comparison")
+    for i in range(3):
+        axs[i].plot(outstate[:, i], color="b", linewidth=0.9)
+        axs[i].plot(gtstate[:, i], color="mediumseagreen", linewidth=0.9)
+        axs[i].legend(["AirIO_" + legend_list[i], "gt_" + legend_list[i]])
+        axs[i].grid(True)
+    
+    if refstate is not None:
+        for i in range(3):
+            axs[i].plot(refstate[:, i], color="red", linewidth=0.9)
+            axs[i].legend(
+                [
+                "AirIO_" + legend_list[i], 
+                "gt_" + legend_list[i],
+                "IOnet" + legend_list[i],
+                ]
+            )
+
+    plt.tight_layout()
+    if save_folder is not None:
+        plt.savefig(
+            os.path.join(save_folder, save_prefix + ".png"), dpi=300
         )
     plt.show()
     plt.close()

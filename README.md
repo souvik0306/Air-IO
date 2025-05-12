@@ -87,6 +87,15 @@ python EKF/IMUofflinerunner.py \
 EKF results will be saved as `${SEQUENCE_NAME}_ekf_poses.npy` and `${SEQUENCE_NAME}_ekf_results.npy`
 > [!NOTE]  
 > Replace ${AirIMU_RESULT_PATH} with the directory containing AirIMU result pickle files.
+
+### 🚀CasADi-based EKF example
+We have also implemented an EKF using [CasADi](https://web.casadi.org/) to accelerate Jacobian computation.  
+You can run the accelerated CasADi-based EKF with:
+```
+python EKF/casADI_EKF/casADI_EKFrunner.py \
+       --conf configs/casADI_EKF/Blackbird/blackbird.yaml
+```
+
 ### Evaluate & Visualize EKF Results
 ```
 python evaluation/evaluate_ekf.py \
