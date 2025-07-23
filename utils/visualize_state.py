@@ -6,13 +6,17 @@ import numpy as np
 import pypose as pp
 import torch
 
-def visualize_motion(save_prefix, save_folder, outstate,infstate,label="AirIO"):
+def visualize_motion(save_prefix, save_folder, outstate, infstate, time, label="AirIO"):
     ### visualize gt&netoutput velocity, 2d trajectory. 
     gt_x, gt_y, gt_z                = torch.split(outstate["poses_gt"][0].cpu(), 1, dim=1)
     airTraj_x, airTraj_y, airTraj_z = torch.split(infstate["poses"][0].cpu(), 1, dim=1)
     
-    v_gt_x, v_gt_y, v_gt_z       = torch.split(outstate['vel_gt'][0][::50,:].cpu(), 1, dim=1)
-    airVel_x, airVel_y, airVel_z = torch.split(infstate['net_vel'][0][::50,:].cpu(), 1, dim=1)
+    v_gt_x, v_gt_y, v_gt_z = torch.split(
+        outstate["vel_gt"][0][::50, :].cpu(), 1, dim=1
+    )
+    airVel_x, airVel_y, airVel_z = torch.split(
+        infstate["net_vel"][0][::50, :].cpu(), 1, dim=1
+    )
     
     fig = plt.figure(figsize=(12, 6))
     gs = GridSpec(3, 2) 
@@ -30,14 +34,14 @@ def visualize_motion(save_prefix, save_folder, outstate,infstate,label="AirIO"):
     ax1.legend()
     
     #visualize vel
-    ax2.plot(airVel_x,label=label)
-    ax2.plot(v_gt_x,label="Ground Truth")
-    
-    ax3.plot(airVel_y,label=label)
-    ax3.plot(v_gt_y,label="Ground Truth")
-    
-    ax4.plot(airVel_z,label=label)
-    ax4.plot(v_gt_z,label="Ground Truth")
+    ax2.plot(time[::50], airVel_x, label=label)
+    ax2.plot(time[::50], v_gt_x, label="Ground Truth")
+
+    ax3.plot(time[::50], airVel_y, label=label)
+    ax3.plot(time[::50], v_gt_y, label="Ground Truth")
+
+    ax4.plot(time[::50], airVel_z, label=label)
+    ax4.plot(time[::50], v_gt_z, label="Ground Truth")
     
     ax2.set_xlabel('time')
     ax2.set_ylabel('velocity')
