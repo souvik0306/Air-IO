@@ -89,7 +89,9 @@ class Uzurich(Sequence):
 
     def load_imu(self, folder):
         imu_data = np.loadtxt(
-            os.path.join(folder, "imu_converted.csv"), dtype=float, delimiter=","
+            os.path.join(folder, "imu_converted.csv"), 
+            dtype=float, delimiter=",", 
+            skiprows=1
         )
         self.data["time"] = imu_data[:, 0] 
         self.data["gyro"] = imu_data[:, 1:4]
@@ -100,6 +102,7 @@ class Uzurich(Sequence):
             os.path.join(folder, "groundtruth_converted2.csv"),
             dtype=float,
             delimiter=",",
+            skiprows=1
         )
         self.data["gt_time"] = gt_data[:, 0]
         self.data["pos"] = gt_data[:, 1:4]
