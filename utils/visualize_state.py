@@ -40,6 +40,13 @@ def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, labe
         t_plot = torch.arange(len(gt_x))
         t_vel = t_plot[::50]
 
+    # Poses predicted by integrate_pos start from the first delta time step,
+    # hence they correspond to timestamps ``ts[1:]`` when ``ts`` is provided.
+    t_pos = t_plot[1:]
+    gt_x = gt_x[1:]
+    gt_y = gt_y[1:]
+    gt_z = gt_z[1:]
+
     fig = plt.figure(figsize=(14, 6))
     gs = GridSpec(3, 3)
 
@@ -72,16 +79,16 @@ def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, labe
     ax_vz.set_ylabel("v_z")
 
     # Visualize position over time
-    ax_px.plot(t_plot, airTraj_x, label=label)
-    ax_px.plot(t_plot, gt_x, label="Ground Truth")
+    ax_px.plot(t_pos, airTraj_x, label=label)
+    ax_px.plot(t_pos, gt_x, label="Ground Truth")
     ax_px.set_ylabel("x")
 
-    ax_py.plot(t_plot, airTraj_y, label=label)
-    ax_py.plot(t_plot, gt_y, label="Ground Truth")
+    ax_py.plot(t_pos, airTraj_y, label=label)
+    ax_py.plot(t_pos, gt_y, label="Ground Truth")
     ax_py.set_ylabel("y")
 
-    ax_pz.plot(t_plot, airTraj_z, label=label)
-    ax_pz.plot(t_plot, gt_z, label="Ground Truth")
+    ax_pz.plot(t_pos, airTraj_z, label=label)
+    ax_pz.plot(t_pos, gt_z, label="Ground Truth")
     ax_pz.set_ylabel("z")
 
     for ax in [ax_vx, ax_vy, ax_vz, ax_px, ax_py, ax_pz]:
