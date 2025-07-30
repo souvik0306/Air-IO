@@ -94,6 +94,8 @@ def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, labe
     for ax in [ax_vx, ax_vy, ax_vz, ax_px, ax_py, ax_pz]:
         ax.set_xlabel("time")
         ax.legend()
+        # keep absolute timestamps while avoiding scientific notation
+        ax.ticklabel_format(style="plain", useOffset=False)
 
     fig.tight_layout()
     save_prefix += "_state.png"
