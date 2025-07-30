@@ -65,18 +65,43 @@ if __name__ == '__main__':
             print("data_name", data_name)
             print("data_conf.name", data_conf.name)
 
-            dataset = SeqDataset(data_conf.data_root, data_name, args.device, name = data_conf.name, duration=args.seqlen, step_size=args.seqlen, drop_last=False, conf = dataset_conf)
-            loader = Data.DataLoader(dataset=dataset, batch_size=1, collate_fn=imu_seq_collate, shuffle=False, drop_last=False)
+            dataset = SeqDataset(
+                data_conf.data_root,
+                data_name,
+                args.device,
+                name=data_conf.name,
+                duration=args.seqlen,
+                step_size=args.seqlen,
+                drop_last=False,
+                conf=dataset_conf,
+            )
+            loader = Data.DataLoader(
+                dataset=dataset,
+                batch_size=1,
+                collate_fn=imu_seq_collate,
+                shuffle=False,
+                drop_last=False,
+            )
+
             init = dataset.get_init_value()
             gravity = dataset.get_gravity()
+
+            # compute timestamp array for visualization
+            dt_vis = dataset.data["time"][1:] - dataset.data["time"][:-1]
+            time = torch.cat(
+                [torch.tensor([0.0], device=dt_vis.device), torch.cumsum(dt_vis, dim=0)]
+            )
             integrator_outstate = pp.module.IMUPreintegrator(
                 init['pos'], init['rot'], init['vel'],gravity=gravity,
                 reset=False
             ).to(args.device).double()
             
             integrator_reset = pp.module.IMUPreintegrator(
-                init['pos'], init['rot'], init['vel'],gravity = gravity,
-                reset=True
+                init['pos'],
+                init['rot'],
+                init['vel'],
+                gravity=gravity,
+                reset=True,
             ).to(args.device).double()
             
             outstate = integrate(
@@ -117,8 +142,8 @@ if __name__ == '__main__':
                 else:
                     save_prefix = data_name
                
-                dt = gt_ts[1:] - gt_ts[:-1]
-                data_inte = {"vel":net_vel,'dt':dt}
+                dt_vel = gt_ts[1:] - gt_ts[:-1]
+                data_inte = {"vel": net_vel, "dt": dt_vel}
                 
                 integrator_vel =Velocity_Integrator(
                     init['pos']).to(args.device).double()
@@ -149,7 +174,7 @@ if __name__ == '__main__':
                 print("pos_err: ", inf_outstate['pos_dist'].mean())
                 print("rte",inf_rte.mean())
 
-            visualize_motion(save_prefix, folder,outstate,inf_outstate)
+            visualize_motion(save_prefix, folder, outstate, inf_outstate, time)
 
         file_path = os.path.join(folder, "result.json")
         with open(file_path, 'w') as f: 
