@@ -149,7 +149,7 @@ if __name__ == '__main__':
                 print("pos_err: ", inf_outstate['pos_dist'].mean())
                 print("rte",inf_rte.mean())
 
-            visualize_motion(save_prefix, folder,outstate,inf_outstate)
+            visualize_motion(save_prefix, folder, outstate, inf_outstate, ts=gt_ts)
 
         file_path = os.path.join(folder, "result.json")
         with open(file_path, 'w') as f: 
