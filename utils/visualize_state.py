@@ -129,7 +129,7 @@ def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=
     plt.tight_layout()
     if save_folder is not None:
         plt.savefig(
-            os.path.join(save_folder, save_prefix + "_orientation_compare.png"), dpi=300
+            os.path.join(save_folder, save_prefix + "_orientation_compare.png"), dpi=600
         )
     plt.show()
     plt.close()
@@ -161,7 +161,7 @@ def visualize_velocity(save_prefix, gtstate, outstate, refstate=None, save_folde
     plt.tight_layout()
     if save_folder is not None:
         plt.savefig(
-            os.path.join(save_folder, save_prefix + ".png"), dpi=300
+            os.path.join(save_folder, save_prefix + ".png"), dpi=600
         )
     plt.show()
     plt.close()
