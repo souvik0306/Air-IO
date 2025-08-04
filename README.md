@@ -103,6 +103,17 @@ python evaluation/evaluate_ekf.py \
     --seqlen 1000
 ```
 
+### Compare NN, EKF, and Ground Truth
+After running the EKF and saving its results, plot the neural network prediction
+against the EKF and ground truth with:
+```
+python evaluation/plot_nn_ekf.py \
+    --dataconf configs/datasets/BlackBird/blackbird_body.conf \
+    --exp experiments/blackbird/motion_body_rot \
+    --savedir EKFresult/loss_result \
+    --seqlen 1000
+```
+
 ## 🛠️ Custom Configuration Guide    
 - Modifying Configuration files
 - Adding custom datasets  

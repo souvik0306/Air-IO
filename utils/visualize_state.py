@@ -102,6 +102,63 @@ def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, labe
     plt.savefig(os.path.join(save_folder, save_prefix), dpi=300)
     plt.close()
 
+
+def visualize_nn_ekf_motion(save_prefix, save_folder, gt_pos, nn_pos, ekf_pos, ts):
+    """Compare network, EKF and ground-truth positions over time.
+
+    Parameters
+    ----------
+    save_prefix : str
+        Prefix for the saved figure name.
+    save_folder : str
+        Directory where the figure will be saved.
+    gt_pos : Tensor or ndarray
+        Ground-truth positions with shape ``(N, 3)``.
+    nn_pos : Tensor or ndarray
+        Positions predicted by the neural network with shape ``(N, 3)``.
+    ekf_pos : Tensor or ndarray
+        Positions estimated by the EKF with shape ``(N, 3)``.
+    ts : Tensor or ndarray
+        1-D timestamps corresponding to the position samples.
+    """
+
+    gt_pos = torch.as_tensor(gt_pos).cpu()
+    nn_pos = torch.as_tensor(nn_pos).cpu()
+    ekf_pos = torch.as_tensor(ekf_pos).cpu()
+    ts = torch.as_tensor(ts).cpu()
+
+    fig = plt.figure(figsize=(14, 6))
+    gs = GridSpec(3, 2)
+
+    ax_traj = fig.add_subplot(gs[:, 0])
+    ax_x = fig.add_subplot(gs[0, 1])
+    ax_y = fig.add_subplot(gs[1, 1])
+    ax_z = fig.add_subplot(gs[2, 1])
+
+    # XY trajectory
+    ax_traj.plot(nn_pos[:, 0], nn_pos[:, 1], label="NN")
+    ax_traj.plot(ekf_pos[:, 0], ekf_pos[:, 1], label="EKF")
+    ax_traj.plot(gt_pos[:, 0], gt_pos[:, 1], label="Ground Truth")
+    ax_traj.set_xlabel("X axis")
+    ax_traj.set_ylabel("Y axis")
+    ax_traj.legend()
+
+    coords = ["x", "y", "z"]
+    for ax, idx, name in [(ax_x, 0, "x"), (ax_y, 1, "y"), (ax_z, 2, "z")]:
+        ax.plot(ts, nn_pos[:, idx], label="NN")
+        ax.plot(ts, ekf_pos[:, idx], label="EKF")
+        ax.plot(ts, gt_pos[:, idx], label="Ground Truth")
+        ax.set_ylabel(name)
+        ax.set_xlabel("time")
+        ax.legend()
+        ax.ticklabel_format(style="plain", useOffset=False)
+
+    fig.tight_layout()
+    plt.savefig(
+        os.path.join(save_folder, save_prefix + "_nn_ekf.png"), dpi=300
+    )
+    plt.close()
+
 def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=None):
     gt_euler = np.unwrap(pp.SO3(gt_rot).euler(), axis=0, discont=np.pi/2) * 180.0 / np.pi
     outstate_euler = np.unwrap(pp.SO3(out_rot).euler(), axis=0, discont=np.pi/2) * 180.0 / np.pi
@@ -135,6 +192,7 @@ def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=
         )
     plt.show()
     plt.close()
+
 
 
 def visualize_velocity(save_prefix, gtstate, outstate, refstate=None, save_folder=None):
