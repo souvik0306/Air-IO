@@ -46,7 +46,7 @@ def plot_bias_subplots(bias, title='Bias of Three Axes', save_path=None):
 
 
     if save_path:
-        plt.savefig(save_path)
+        plt.savefig(save_path,  dpi=600)
         print(f"Plot saved to {save_path}")
     else:
         # Display the p

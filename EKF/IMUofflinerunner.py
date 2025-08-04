@@ -255,11 +255,16 @@ if __name__ == '__main__':
             np.save(os.path.join(folder, f"{data_name}_ekf_poses.npy"), ekf_poses)
             
             plt.figure()
-            plt.plot(ekf_result[:, 6], ekf_result[:, 7], label="EKF")
-            plt.plot(gtpos[:, 0], gtpos[:, 1], label="GT")
-            
-            plt.savefig(os.path.join(folder, f"{data_name}_ekf_result.png"))
-            
+            plt.plot(ekf_result[:, 6], ekf_result[:, 7], label="EKF Trajectory")
+            plt.plot(gtpos[:, 0], gtpos[:, 1], label="Ground Truth Trajectory")
+            plt.xlabel("X Position (meters)")
+            plt.ylabel("Y Position (meters)")
+            plt.title(f"Trajectory Comparison: {data_name}")
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(os.path.join(folder, f"{data_name}_ekf_result.png"), dpi=600)
+
             # visualize the net velocity
             io_ts = io_result["ts"][:,0]
             net_vel = io_result["net_vel"]
