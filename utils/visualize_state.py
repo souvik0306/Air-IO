@@ -121,11 +121,17 @@ def visualize_nn_ekf_motion(save_prefix, save_folder, gt_pos, nn_pos, ekf_pos, t
     ts : Tensor or ndarray
         1-D timestamps corresponding to the position samples.
     """
-
     gt_pos = torch.as_tensor(gt_pos).cpu()
     nn_pos = torch.as_tensor(nn_pos).cpu()
     ekf_pos = torch.as_tensor(ekf_pos).cpu()
     ts = torch.as_tensor(ts).cpu()
+
+    # Ensure all sequences share the same length
+    length = min(len(ts), len(gt_pos), len(nn_pos), len(ekf_pos))
+    ts = ts[:length]
+    gt_pos = gt_pos[:length]
+    nn_pos = nn_pos[:length]
+    ekf_pos = ekf_pos[:length]
 
     fig = plt.figure(figsize=(14, 6))
     gs = GridSpec(3, 2)

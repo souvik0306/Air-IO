@@ -89,6 +89,5 @@ if __name__ == "__main__":
             ts = gt_ts[1:]
             gt_pos = gt_pos[1:]
             nn_pos = inf_outstate["poses"][0]
-            ekf_pos = ekf_pos[1:]
 
             visualize_nn_ekf_motion(save_prefix, args.savedir, gt_pos, nn_pos, ekf_pos, ts)
