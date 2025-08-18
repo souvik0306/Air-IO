@@ -67,6 +67,41 @@ if __name__ == '__main__':
         checkpoint = torch.load(ckpt_path, map_location=torch.device(args.device),weights_only=True)
         print("loaded state dict %s in epoch %i"%(ckpt_path, checkpoint["epoch"]))
         network.load_state_dict(checkpoint["model_state_dict"])
+        
+        # ---- Save model in .pt format ----
+        pt_path = os.path.join(conf.general.exp_dir, "model_export.pt")
+        torch.save(network.state_dict(), pt_path)
+        print(f"Saved PyTorch weights to {pt_path}")
+
+        # ---- Export model to ONNX format ----
+        # Prepare a dummy batch from the dataset for ONNX tracing
+        data_conf = dataset_conf.data_list[0]
+        path = data_conf.data_drive[0]
+        eval_dataset = SeqeuncesMotionDataset(data_set_config=dataset_conf, data_path=path, data_root=data_conf["data_root"])
+        # FIX: select collate_fn from collate_fcs
+        if 'collate' in conf.dataset.keys():
+            collate_fn = collate_fcs[conf.dataset.collate.type]
+        else:
+            collate_fn = collate_fcs['base']
+        eval_loader = Data.DataLoader(dataset=eval_dataset, batch_size=args.batch_size, 
+                                     shuffle=False, collate_fn=collate_fn, drop_last=False)
+        data, _, label = next(iter(eval_loader))
+        dummy_data = {k: v.to(args.device).double() for k, v in data.items()}
+        dummy_rot = label['gt_rot'][:, :-1, :].Log().tensor().to(args.device).double()
+        onnx_path = os.path.join(conf.general.exp_dir, "model_export.onnx")
+        torch.onnx.export(
+            network,
+            (dummy_data, dummy_rot),
+            onnx_path,
+            export_params=True,
+            opset_version=12,
+            do_constant_folding=True,
+            input_names=['data', 'rot'],
+            output_names=['output'],
+            dynamic_axes={'data': {0: 'batch'}, 'rot': {0: 'batch'}}
+        )
+        print(f"Exported ONNX model to {onnx_path}")
+
     else:
         raise KeyError(f"No model loaded {ckpt_path}")
         sys.exit()
@@ -102,4 +137,4 @@ if __name__ == '__main__':
     print("save netout, ", net_result_path)
     with open(net_result_path, 'wb') as handle:
         pickle.dump(net_out_result, handle, protocol=pickle.HIGHEST_PROTOCOL)
-   
+

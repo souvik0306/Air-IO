@@ -18,11 +18,12 @@ if __name__ == "__main__":
     # Load config and model
     conf = ConfigFactory.parse_file(args.config)
     conf.train.device = args.device
-    model = net_dict[conf.train.network](conf.train).to(args.device).double()
+    model = net_dict[conf.train.network](conf.train).to(args.device).float()
 
     # Load checkpoint
     ckpt = torch.load(args.ckpt, map_location=args.device)
     model.load_state_dict(ckpt['model_state_dict'])
+    model = model.float()
     model.eval()
 
     # Prepare dataset and loader to get a real batch
@@ -45,9 +46,9 @@ if __name__ == "__main__":
     dummy_data = data
     dummy_rot = label['gt_rot'][:, :-1, :].Log().tensor()
 
-    # Move to device and double
-    dummy_data = {k: v.to(args.device).double() for k, v in dummy_data.items()}
-    dummy_rot = dummy_rot.to(args.device).double()
+    # Move to device and float
+    dummy_data = {k: v.to(args.device).float() for k, v in dummy_data.items()}
+    dummy_rot = dummy_rot.to(args.device).float()
 
     # If your model expects a dict for data, you may need to adapt this part
     # For ONNX export, flatten dict input if needed
