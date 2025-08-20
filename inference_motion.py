@@ -11,7 +11,7 @@ from utils import move_to, save_state
 from pyhocon import ConfigFactory
 
 from datasets import collate_fcs, SeqeuncesMotionDataset
-from model import net_dict
+from model import net_dict, ONNXWrapper
 from utils import *
 
 
@@ -54,6 +54,9 @@ if __name__ == '__main__':
     dataset_conf = conf.dataset.inference
     
     
+    # The trained network uses double precision but ONNX export requires
+    # float32 tensors. We keep the network in double for downstream PyTorch
+    # inference and temporarily cast to float32 when exporting to ONNX.
     network = net_dict[conf.train.network](conf.train).to(args.device).double()
     save_folder = os.path.join(conf.general.exp_dir, "evaluate")
     os.makedirs(save_folder, exist_ok=True)
@@ -85,18 +88,32 @@ if __name__ == '__main__':
         eval_loader = Data.DataLoader(dataset=eval_dataset, batch_size=args.batch_size, 
                                      shuffle=False, collate_fn=collate_fn, drop_last=False)
         data, _, label = next(iter(eval_loader))
-        dummy_data = {k: v.to(args.device).double() for k, v in data.items()}
-        dummy_rot = label['gt_rot'][:, :-1, :].Log().tensor().to(args.device).double()
+        # Prepare float32 dummy inputs for ONNX tracing
+        dummy_data = {k: v.to(args.device).float() for k, v in data.items()}
+        dummy_rot = label['gt_rot'][:, :-1, :].Log().tensor().to(args.device).float()
+
+        # Wrap the network so that ONNX sees explicit tensor arguments instead
+        # of a nested dictionary.
+        wrapper = ONNXWrapper(network.float())
         onnx_path = os.path.join(conf.general.exp_dir, "model_export.onnx")
         torch.onnx.export(
-            network,
-            (dummy_data, dummy_rot),
+            wrapper,
+            (dummy_data['acc'], dummy_data['gyro'], dummy_rot),
             onnx_path,
-            input_names=['data', 'rot'],
-            output_names=['output'],
-            dynamic_axes={'data': {0: 'batch'}, 'rot': {0: 'batch'}}
+            input_names=['acc', 'gyro', 'rot'],
+            output_names=['net_vel', 'cov'],
+            dynamic_axes={
+                'acc': {0: 'batch', 1: 'seq'},
+                'gyro': {0: 'batch', 1: 'seq'},
+                'rot': {0: 'batch', 1: 'seq'},
+                'net_vel': {0: 'batch', 1: 'seq'},
+                'cov': {0: 'batch', 1: 'seq'},
+            },
         )
         print(f"Exported ONNX model to {onnx_path}")
+
+        # Restore original precision for subsequent PyTorch inference
+        network.double()
 
     else:
         raise KeyError(f"No model loaded {ckpt_path}")
