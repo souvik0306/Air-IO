@@ -1,4 +1,5 @@
 from .code import *
+from .onnx_wrapper import ONNXWrapper
 
 net_dict = {
     'codenetmotion':CodeNetMotion,

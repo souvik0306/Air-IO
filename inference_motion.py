@@ -11,7 +11,7 @@ from utils import move_to, save_state
 from pyhocon import ConfigFactory
 
 from datasets import collate_fcs, SeqeuncesMotionDataset
-from model import net_dict
+from model import net_dict, ONNXWrapper
 from utils import *
 
 
@@ -88,13 +88,15 @@ if __name__ == '__main__':
         dummy_data = {k: v.to(args.device).double() for k, v in data.items()}
         dummy_rot = label['gt_rot'][:, :-1, :].Log().tensor().to(args.device).double()
         onnx_path = os.path.join(conf.general.exp_dir, "model_export.onnx")
+        wrapper = ONNXWrapper(network)
         torch.onnx.export(
-            network,
-            (dummy_data, dummy_rot),
+            wrapper,
+            (dummy_data['acc'], dummy_data['gyro'], dummy_rot),
             onnx_path,
-            input_names=['data', 'rot'],
-            output_names=['output'],
-            dynamic_axes={'data': {0: 'batch'}, 'rot': {0: 'batch'}}
+            input_names=['acc', 'gyro', 'rot'],
+            output_names=['net_vel', 'cov'],
+            dynamic_axes={'acc': {0: 'batch'}, 'gyro': {0: 'batch'}, 'rot': {0: 'batch'},
+                          'net_vel': {0: 'batch'}, 'cov': {0: 'batch'}}
         )
         print(f"Exported ONNX model to {onnx_path}")
 
