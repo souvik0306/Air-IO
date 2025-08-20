@@ -9,22 +9,62 @@ from pyhocon import ConfigFactory
 from datasets import collate_fcs, SeqeuncesMotionDataset
 
 def move_to_numpy(data):
-    # Convert dict of torch tensors to dict of numpy arrays
-    return {k: v.cpu().numpy() for k, v in data.items()}
+    """Convert dict of tensors to float32 NumPy arrays."""
+    return {k: v.cpu().numpy().astype(np.float32) for k, v in data.items()}
+
+
+def select_ts(ts: torch.Tensor) -> torch.Tensor:
+    """Mimic ``CodeNetMotion.get_label`` for timestamps.
+
+    The network's convolution/pooling stack causes the output sequence to be a
+    strided subset of the input. During PyTorch inference we call
+    ``network.get_label`` on ``data['ts']`` to obtain the corresponding
+    timestamps for each predicted velocity. This helper reproduces that logic so
+    ONNX inference yields the same timestamp array.
+
+    Parameters
+    ----------
+    ts: torch.Tensor
+        Timestamp tensor of shape ``(batch, seq)``.
+
+    Returns
+    -------
+    torch.Tensor
+        Trimmed and strided timestamps of shape ``(seq_out, 1)`` with the batch
+        dimension removed.
+    """
+
+    # Parameters taken from ``CodeNetMotionwithRot``
+    k_list = [7, 7]
+    p_list = [3, 3]
+    s_list = [3, 3]
+
+    ts = ts[..., None]  # (batch, seq, 1)
+    s_idx = (k_list[0] - p_list[0]) + s_list[0] * (k_list[1] - 1 - p_list[1]) + 1
+    select_ts = ts[:, s_idx:: s_list[0] * s_list[1], :]
+    L_out = (ts.shape[1] - 1 - 1) // s_list[0] // s_list[1] + 1
+    diff = L_out - select_ts.shape[1]
+    if diff > 0:
+        select_ts = torch.cat((select_ts, ts[:, -1:, :].repeat(1, diff, 1)), dim=1)
+    return select_ts[0]  # (seq_out, 1)
 
 def run_onnx_inference(onnx_session, loader):
     evaluate_states = {}
     for data, _, label in tqdm.tqdm(loader):
         # Prepare inputs
         data_np = move_to_numpy(data)
-        rot = label['gt_rot'][:, :-1, :].Log().tensor().cpu().numpy()
-        ort_inputs = {'data': data_np, 'rot': rot}
+        rot = label['gt_rot'][:, :-1, :].Log().tensor().cpu().numpy().astype(np.float32)
+        ort_inputs = {
+            'acc': data_np['acc'],
+            'gyro': data_np['gyro'],
+            'rot': rot,
+        }
         # Run ONNX inference
-        outputs = onnx_session.run(None, ort_inputs)
-        # Adapt output extraction as needed
+        outputs = onnx_session.run(['net_vel', 'cov'], ort_inputs)
         inte_state = {
-            'net_vel': torch.from_numpy(outputs[0]),
-            'ts': data['ts']
+            'net_vel': torch.from_numpy(outputs[0]).double(),
+            'cov': torch.from_numpy(outputs[1]).double(),
+            'ts': select_ts(data['ts'].cpu()).double(),
         }
         for k, v in inte_state.items():
             if k not in evaluate_states:
@@ -76,10 +116,9 @@ if __name__ == "__main__":
                 drop_last=False
             )
             inference_state = run_onnx_inference(onnx_session, eval_loader)
-            if not "cov" in inference_state.keys():
-                inference_state["cov"] = torch.zeros_like(inference_state["net_vel"])
             inference_state['ts'] = inference_state['ts']
-            inference_state['net_vel'] = inference_state['net_vel'][0] #TODO: batch size != 1
+            inference_state['net_vel'] = inference_state['net_vel'][0]  # TODO: batch size != 1
+            inference_state['cov'] = inference_state['cov'][0]  # TODO: batch size != 1
             net_out_result[path] = inference_state
 
     net_result_path = os.path.join(conf['general']['exp_dir'], 'onnx_network.pickle')
