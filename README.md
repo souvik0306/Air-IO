@@ -103,6 +103,30 @@ python evaluation/evaluate_ekf.py \
     --seqlen 1000
 ```
 
+### 🟦 Run Inference and Evaluation with ONNX
+
+You can use the exported ONNX model for fast inference without PyTorch dependencies.
+
+**Download the ONNX model:**
+```sh
+wget https://github.com/souvik0306/Air-IO/releases/download/v.0.1/airio_model.onnx
+```
+
+**Run ONNX inference:**
+```sh
+python inference_onnx.py --config configs/EuRoC/motion_body.conf --onnx experiments/euroc/motion_body/airio_model.onnx --device cpu --batch_size 1 --seqlen 1000
+```
+
+**Evaluate the results:**
+```sh
+python evaluation/evaluate_motion.py \
+    --dataconf configs/datasets/EuRoC/Euroc_body.conf \
+    --exp experiments/euroc/motion_body \
+    --seqlen 500
+```
+
+This will generate and evaluate the network predictions using
+
 ## 🛠️ Custom Configuration Guide    
 - Modifying Configuration files
 - Adding custom datasets  
