@@ -78,7 +78,6 @@ if __name__ == '__main__':
         data_conf = dataset_conf.data_list[0]
         path = data_conf.data_drive[0]
         eval_dataset = SeqeuncesMotionDataset(data_set_config=dataset_conf, data_path=path, data_root=data_conf["data_root"])
-        # FIX: select collate_fn from collate_fcs
         if 'collate' in conf.dataset.keys():
             collate_fn = collate_fcs[conf.dataset.collate.type]
         else:
@@ -93,9 +92,6 @@ if __name__ == '__main__':
             network,
             (dummy_data, dummy_rot),
             onnx_path,
-            export_params=True,
-            opset_version=12,
-            do_constant_folding=True,
             input_names=['data', 'rot'],
             output_names=['output'],
             dynamic_axes={'data': {0: 'batch'}, 'rot': {0: 'batch'}}
