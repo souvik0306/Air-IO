@@ -29,15 +29,15 @@ def inference_onnx(onnx_session, loader, confs):
     import onnxruntime as ort
     evaluate_states = {}
     for data, _, label in tqdm.tqdm(loader):
-        # Prepare input for ONNX (convert tensors to numpy)
         data_np = {k: v.cpu().numpy() for k, v in data.items()}
         rot = label['gt_rot'][:, :-1, :].Log().tensor().cpu().numpy()
-        data_np['rot'] = rot
-        # ONNX expects a dict of numpy arrays
-        ort_inputs = {k: v for k, v in data_np.items()}
-        outputs = onnx_session.run(None, ort_inputs)
-        # You may need to adapt this depending on your ONNX export
-        inte_state = {'net_vel': torch.from_numpy(outputs[0]), 'ts': data['ts']}
+        ort_inputs = {'acc': data_np['acc'], 'gyro': data_np['gyro'], 'rot': rot}
+        outputs = onnx_session.run(['net_vel', 'cov'], ort_inputs)
+        inte_state = {
+            'net_vel': torch.from_numpy(outputs[0]),
+            'cov': torch.from_numpy(outputs[1]),
+            'ts': data['ts'],
+        }
         save_state(evaluate_states, inte_state)
     for k, v in evaluate_states.items():
         evaluate_states[k] = torch.cat(v, dim=-2)

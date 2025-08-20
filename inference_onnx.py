@@ -8,23 +8,23 @@ import onnxruntime as ort
 from pyhocon import ConfigFactory
 from datasets import collate_fcs, SeqeuncesMotionDataset
 
+
 def move_to_numpy(data):
     # Convert dict of torch tensors to dict of numpy arrays
     return {k: v.cpu().numpy() for k, v in data.items()}
 
+
 def run_onnx_inference(onnx_session, loader):
     evaluate_states = {}
     for data, _, label in tqdm.tqdm(loader):
-        # Prepare inputs
         data_np = move_to_numpy(data)
         rot = label['gt_rot'][:, :-1, :].Log().tensor().cpu().numpy()
-        ort_inputs = {'data': data_np, 'rot': rot}
-        # Run ONNX inference
-        outputs = onnx_session.run(None, ort_inputs)
-        # Adapt output extraction as needed
+        ort_inputs = {'acc': data_np['acc'], 'gyro': data_np['gyro'], 'rot': rot}
+        outputs = onnx_session.run(['net_vel', 'cov'], ort_inputs)
         inte_state = {
             'net_vel': torch.from_numpy(outputs[0]),
-            'ts': data['ts']
+            'cov': torch.from_numpy(outputs[1]),
+            'ts': data['ts'],
         }
         for k, v in inte_state.items():
             if k not in evaluate_states:
@@ -33,6 +33,7 @@ def run_onnx_inference(onnx_session, loader):
     for k, v in evaluate_states.items():
         evaluate_states[k] = torch.cat(v, dim=-2)
     return evaluate_states
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -67,7 +68,11 @@ if __name__ == "__main__":
             else:
                 dataset_conf["mode"] = "infevaluate"
             dataset_conf["exp_dir"] = conf['general']['exp_dir']
-            eval_dataset = SeqeuncesMotionDataset(data_set_config=dataset_conf, data_path=path, data_root=data_conf["data_root"])
+            eval_dataset = SeqeuncesMotionDataset(
+                data_set_config=dataset_conf,
+                data_path=path,
+                data_root=data_conf["data_root"]
+            )
             eval_loader = torch.utils.data.DataLoader(
                 dataset=eval_dataset,
                 batch_size=args.batch_size,
@@ -76,13 +81,14 @@ if __name__ == "__main__":
                 drop_last=False
             )
             inference_state = run_onnx_inference(onnx_session, eval_loader)
-            if not "cov" in inference_state.keys():
+            if "cov" not in inference_state.keys():
                 inference_state["cov"] = torch.zeros_like(inference_state["net_vel"])
             inference_state['ts'] = inference_state['ts']
-            inference_state['net_vel'] = inference_state['net_vel'][0] #TODO: batch size != 1
+            inference_state['net_vel'] = inference_state['net_vel'][0]  # TODO: batch size != 1
             net_out_result[path] = inference_state
 
     net_result_path = os.path.join(conf['general']['exp_dir'], 'onnx_network.pickle')
     print("save netout, ", net_result_path)
     with open(net_result_path, 'wb') as handle:
         pickle.dump(net_out_result, handle, protocol=pickle.HIGHEST_PROTOCOL)
+

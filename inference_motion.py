@@ -87,14 +87,29 @@ if __name__ == '__main__':
         data, _, label = next(iter(eval_loader))
         dummy_data = {k: v.to(args.device).double() for k, v in data.items()}
         dummy_rot = label['gt_rot'][:, :-1, :].Log().tensor().to(args.device).double()
+        dummy_acc = dummy_data['acc']
+        dummy_gyro = dummy_data['gyro']
+
+        class ONNXWrapper(torch.nn.Module):
+            def __init__(self, net):
+                super().__init__()
+                self.net = net
+
+            def forward(self, acc, gyro, rot):
+                data = {'acc': acc, 'gyro': gyro}
+                out = self.net(data, rot)
+                cov = out['cov'] if out['cov'] is not None else torch.zeros_like(out['net_vel'])
+                return out['net_vel'], cov
+
+        wrapper = ONNXWrapper(network)
         onnx_path = os.path.join(conf.general.exp_dir, "model_export.onnx")
         torch.onnx.export(
-            network,
-            (dummy_data, dummy_rot),
+            wrapper,
+            (dummy_acc, dummy_gyro, dummy_rot),
             onnx_path,
-            input_names=['data', 'rot'],
-            output_names=['output'],
-            dynamic_axes={'data': {0: 'batch'}, 'rot': {0: 'batch'}}
+            input_names=['acc', 'gyro', 'rot'],
+            output_names=['net_vel', 'cov'],
+            dynamic_axes={'acc': {0: 'batch'}, 'gyro': {0: 'batch'}, 'rot': {0: 'batch'}}
         )
         print(f"Exported ONNX model to {onnx_path}")
 
