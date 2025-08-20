@@ -121,7 +121,7 @@ if __name__ == "__main__":
             inference_state['cov'] = inference_state['cov'][0]  # TODO: batch size != 1
             net_out_result[path] = inference_state
 
-    net_result_path = os.path.join(conf['general']['exp_dir'], 'onnx_network.pickle')
+    net_result_path = os.path.join(conf['general']['exp_dir'], 'net_output.pickle')
     print("save netout, ", net_result_path)
     with open(net_result_path, 'wb') as handle:
         pickle.dump(net_out_result, handle, protocol=pickle.HIGHEST_PROTOCOL)
