@@ -125,3 +125,14 @@ if __name__ == "__main__":
     print("save netout, ", net_result_path)
     with open(net_result_path, 'wb') as handle:
         pickle.dump(net_out_result, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Print the number of sequences processed
+    print(f"Number of sequences processed: {len(net_out_result)}")
+    # Print the number of outputs for each sequence
+    for seq, out in net_out_result.items():
+        print(f"Sequence: {seq}")
+        print(f"  net_vel shape: {out['net_vel'].shape}")
+        print(f"  cov shape: {out['cov'].shape}")
+        print(f"  ts shape: {out['ts'].shape}")
+    print(f"Number of sequences in dataset: {len(eval_dataset)}")
+    print("Index map:", getattr(eval_dataset, 'index_map', 'No index_map'))
