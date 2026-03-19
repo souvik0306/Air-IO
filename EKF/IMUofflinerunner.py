@@ -132,7 +132,7 @@ class EKF_runner():
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", type=str, default="cpu", help="cuda or cpu")
+    parser.add_argument("--device", type=str, default="cuda", help="cuda or cpu")
     parser.add_argument("--exp", type=str, default="experiments/euroc/motion_body", help="Path for AirIO netoutput")
     parser.add_argument("--airimu_exp", type=str, default=None, help="Path for AirIMU netoutput")
     parser.add_argument("--dataconf", type=str, default="configs/datasets/EuRoC/Euroc_body.conf", help="the configuration of the dataset")
