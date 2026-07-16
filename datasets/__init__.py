@@ -5,3 +5,4 @@ from .EuRoCdataset import *
 from .BlackBirddataset import *
 from .Pegasusdataset import *
 from .Uzurichdataset import *
+from .TLabdataset import *
