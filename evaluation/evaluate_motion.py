@@ -16,8 +16,9 @@ from datasets import imu_seq_collate,SeqDataset
  
 from utils import CPU_Unpickler, integrate, interp_xyz
 from utils.velocity_integrator import Velocity_Integrator, integrate_pos
+from utils.csv_results import save_flight_velocity_csv
 
-from utils.visualize_state import visualize_motion
+from utils.visualize_state import visualize_motion, visualize_window_results
  
 def calculate_rte(outstate,duration, step_size):
     poses, poses_gt = outstate['poses'],outstate['poses_gt'][1:,:]
@@ -34,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument("--seqlen", type=int, default="1000", help="the length of the segment")
     parser.add_argument("--dataconf", type=str, default="configs/datasets/EuRoC/Euroc_body.conf", help="the configuration of the dataset")
     parser.add_argument("--savedir",type=str,default = "./result/loss_result",help = "Directory where the results wiil be saved")
+    parser.add_argument("--csvdir", type=str, default="results_csv", help="Directory to save per-flight velocity CSV files")
     parser.add_argument("--usegtrot", action="store_true", help="Use ground truth rotation for gravity compensation")
 
     args = parser.parse_args(); 
@@ -53,6 +55,8 @@ if __name__ == '__main__':
     
     folder = args.savedir
     os.makedirs(folder, exist_ok=True)
+    csv_folder = args.csvdir
+    os.makedirs(csv_folder, exist_ok=True)
 
     AllResults = []
     net_out_result = {}
@@ -129,6 +133,9 @@ if __name__ == '__main__':
                 )
                 inf_rte = calculate_rte(inf_outstate, args.seqlen,args.seqlen)
 
+                # Save per-flight velocity output aligned to gt timestamps.
+                save_flight_velocity_csv(csv_folder, data_name, gt_ts, net_vel)
+
                 #save loss result
                 result_dic = {
                     'name': data_name,      
@@ -150,7 +157,13 @@ if __name__ == '__main__':
                 print("rte",inf_rte.mean())
 
             visualize_motion(save_prefix, folder, outstate, inf_outstate, ts=gt_ts)
-
+            visualize_window_results(
+                save_prefix,
+                folder,
+                outstate,
+                inf_outstate,
+                gt_ts,
+            )
         file_path = os.path.join(folder, "result.json")
         with open(file_path, 'w') as f: 
             json.dump(AllResults, f, indent=4)

@@ -63,6 +63,9 @@ if __name__ == '__main__':
 
     if args.load is None:
         ckpt_path = os.path.join(conf.general.exp_dir, "ckpt/best_model.ckpt")
+    elif os.path.isabs(args.load):
+        # Allow forcing an exact checkpoint path (e.g., finetuned ckpt in Colab).
+        ckpt_path = args.load
     else:
         ckpt_path = os.path.join(conf.general.exp_dir, "ckpt", args.load)
 

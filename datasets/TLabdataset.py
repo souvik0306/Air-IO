@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 import pypose as pp
 import torch
+from scipy.spatial.transform import Rotation
 
 from .dataset import Sequence
 
@@ -36,6 +37,7 @@ class TLab(Sequence):
         data_path = os.path.join(data_root, data_name)
         self.load_imu(data_path)
         self.load_gt(data_path)
+        self.align_all_to_euroc_frame()
         self.use_aligned_ground_truth()
 
         self.data["time"] = torch.tensor(self.data["time"], dtype=torch.double)
@@ -102,6 +104,54 @@ class TLab(Sequence):
         self.data["velocity"] = np.column_stack(
             [gt_data["vel_x"], gt_data["vel_y"], gt_data["vel_z"]]
         )
+
+    def align_imu_to_euroc_frame(self):
+        """Map TLab IMU vectors to EuRoC axes before model consumption."""
+        self.data["acc"] = np.column_stack(
+            [self.data["acc"][:, 2], -self.data["acc"][:, 1], self.data["acc"][:, 0]]
+        )
+        self.data["gyro"] = np.column_stack(
+            [
+                self.data["gyro"][:, 2],
+                -self.data["gyro"][:, 1],
+                self.data["gyro"][:, 0],
+            ]
+        )
+
+    def align_orientation_to_euroc_frame(self):
+        """Remap GT orientation from TLab frame to EuRoC frame via rotation matrices."""
+        tlab_to_euroc = np.array(
+            [[0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]], dtype=float
+        )
+        quat_xyzw = self.wxyz_to_xyzw(self.data["quat"])
+        rot_tlab = Rotation.from_quat(quat_xyzw).as_matrix()
+        rot_euroc = tlab_to_euroc @ rot_tlab @ tlab_to_euroc.T
+        quat_euroc_xyzw = Rotation.from_matrix(rot_euroc).as_quat()
+        quat_euroc_wxyz = np.column_stack(
+            [
+                quat_euroc_xyzw[:, 3],
+                quat_euroc_xyzw[:, 0],
+                quat_euroc_xyzw[:, 1],
+                quat_euroc_xyzw[:, 2],
+            ]
+        )
+        self.data["quat"] = self.normalize_quat(quat_euroc_wxyz)
+
+    def align_velocity_to_euroc_frame(self):
+        """Map GT velocity from TLab frame to EuRoC axes for supervised training."""
+        self.data["velocity"] = np.column_stack(
+            [
+                self.data["velocity"][:, 2],
+                -self.data["velocity"][:, 1],
+                self.data["velocity"][:, 0],
+            ]
+        )
+
+    def align_all_to_euroc_frame(self):
+        """Apply TLab-to-EuRoC frame alignment for IMU, orientation, and GT velocity."""
+        self.align_imu_to_euroc_frame()
+        self.align_orientation_to_euroc_frame()
+        self.align_velocity_to_euroc_frame()
 
     def use_aligned_ground_truth(self):
         """Use GT directly because TLab IMU and GT rows are already time-aligned."""
