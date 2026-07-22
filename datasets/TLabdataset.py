@@ -125,7 +125,9 @@ class TLab(Sequence):
         )
         quat_xyzw = self.wxyz_to_xyzw(self.data["quat"])
         rot_tlab = Rotation.from_quat(quat_xyzw).as_matrix()
-        rot_euroc = tlab_to_euroc @ rot_tlab @ tlab_to_euroc.T
+        ## Converts TLab orientation to EuRoC frame using rotation matrices.
+        rot_euroc = rot_tlab @ tlab_to_euroc.T 
+        
         quat_euroc_xyzw = Rotation.from_matrix(rot_euroc).as_quat()
         quat_euroc_wxyz = np.column_stack(
             [
