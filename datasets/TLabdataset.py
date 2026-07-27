@@ -126,7 +126,14 @@ class TLab(Sequence):
         quat_xyzw = self.wxyz_to_xyzw(self.data["quat"])
         rot_tlab = Rotation.from_quat(quat_xyzw).as_matrix()
         ## Converts TLab orientation to EuRoC frame using rotation matrices.
-        rot_euroc = rot_tlab @ tlab_to_euroc.T 
+        # Convert both sides of the orientation:
+        #
+        # TLab body -> TLab world
+        #
+        # becomes:
+        #
+        # EuRoC body -> EuRoC world
+        rot_euroc = tlab_to_euroc @ rot_tlab @ tlab_to_euroc.T
         
         quat_euroc_xyzw = Rotation.from_matrix(rot_euroc).as_quat()
         quat_euroc_wxyz = np.column_stack(
@@ -149,10 +156,21 @@ class TLab(Sequence):
             ]
         )
 
+    def align_position_to_euroc_frame(self):
+        """Map GT position from TLab frame to EuRoC axes for supervised training."""
+        self.data["pos"] = np.column_stack(
+            [
+                self.data["pos"][:, 2],
+                -self.data["pos"][:, 1],
+                self.data["pos"][:, 0],
+            ]
+        )
+
     def align_all_to_euroc_frame(self):
-        """Apply TLab-to-EuRoC frame alignment for IMU, orientation, and GT velocity."""
+        """Apply TLab-to-EuRoC frame alignment for IMU and GT state."""
         self.align_imu_to_euroc_frame()
         self.align_orientation_to_euroc_frame()
+        self.align_position_to_euroc_frame()
         self.align_velocity_to_euroc_frame()
 
     def use_aligned_ground_truth(self):
