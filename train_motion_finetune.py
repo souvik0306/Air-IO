@@ -84,6 +84,22 @@ def log_validation_metrics(network, test_loader, eval_loader, conf, log_enabled,
     return test_loss, eval_state
 
 
+def collect_data_drives(dataset_conf):
+    data_drives = {}
+    for split in ("train", "test", "eval"):
+        if split not in dataset_conf or "data_list" not in dataset_conf[split]:
+            continue
+
+        split_drives = []
+        for idx, data_conf in enumerate(dataset_conf[split].data_list):
+            source_name = data_conf["name"] if "name" in data_conf else f"source_{idx}"
+            drives = list(data_conf["data_drive"]) if "data_drive" in data_conf else []
+            split_drives.append({"name": source_name, "data_drive": drives})
+
+        data_drives[split] = split_drives
+    return data_drives
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -168,6 +184,7 @@ if __name__ == "__main__":
             group=conf.train.network,
             name=conf_name,
         )
+        wandb.config.update({"data_drives": collect_data_drives(conf.dataset)})
 
     network = net_dict[conf.train.network](conf.train).to(
         device=args.device, dtype=train_dataset.get_dtype()

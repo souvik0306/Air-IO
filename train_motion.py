@@ -140,6 +140,22 @@ def evaluate(network, loader, confs, silent_tqdm=False):
     }
 
 
+def collect_data_drives(dataset_conf):
+    data_drives = {}
+    for split in ("train", "test", "eval"):
+        if split not in dataset_conf or "data_list" not in dataset_conf[split]:
+            continue
+
+        split_drives = []
+        for idx, data_conf in enumerate(dataset_conf[split].data_list):
+            source_name = data_conf["name"] if "name" in data_conf else f"source_{idx}"
+            drives = list(data_conf["data_drive"]) if "data_drive" in data_conf else []
+            split_drives.append({"name": source_name, "data_drive": drives})
+
+        data_drives[split] = split_drives
+    return data_drives
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -224,6 +240,7 @@ if __name__ == "__main__":
             group=conf.train.network,
             name=conf_name,
         )
+        wandb.config.update({"data_drives": collect_data_drives(conf.dataset)})
 
     ## optimizer and network
     network = net_dict[conf.train.network](conf.train).to(
@@ -277,6 +294,8 @@ if __name__ == "__main__":
             if args.log:
                 write_wandb('eval/loss', eval_state['loss']['loss'].mean(), epoch_i)
                 write_wandb('eval/dist', eval_state['loss']['dist'].mean(), epoch_i)
+                if 'cov_loss' in eval_state['loss']:
+                    write_wandb('eval/cov_loss', eval_state['loss']['cov_loss'].mean(), epoch_i)
             if "supervise_pos" in conf.train:
                 print("eval pos: %f "%(eval_state['loss']['loss'].mean()))
             else:
