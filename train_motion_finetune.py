@@ -62,6 +62,28 @@ def build_loader(dataset, batch_size, shuffle, collate_fn, drop_last=False):
     )
 
 
+def log_validation_metrics(network, test_loader, eval_loader, conf, log_enabled, step):
+    test_loss = test(network, test_loader, conf.train)
+    print("test loss: %f" % (test_loss["loss"]))
+    if log_enabled:
+        write_wandb("test", test_loss, step)
+
+    eval_state = None
+    if step % conf.train.eval_freq == conf.train.eval_freq - 1:
+        eval_state = evaluate(network=network, loader=eval_loader, confs=conf.train)
+        if log_enabled:
+            write_wandb("eval/loss", eval_state["loss"]["loss"].mean(), step)
+            write_wandb("eval/dist", eval_state["loss"]["dist"].mean(), step)
+            if "cov_loss" in eval_state["loss"]:
+                write_wandb("eval/cov_loss", eval_state["loss"]["cov_loss"].mean(), step)
+        if "supervise_pos" in conf.train:
+            print("eval pos: %f " % (eval_state["loss"]["loss"].mean()))
+        else:
+            print("eval vel: %f " % (eval_state["loss"]["loss"].mean()))
+
+    return test_loss, eval_state
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -191,25 +213,32 @@ if __name__ == "__main__":
             strict=not args.non_strict_pretrained,
         )
 
+    initial_step = epoch
+    log_validation_metrics(
+        network,
+        test_loader,
+        eval_loader,
+        conf,
+        args.log,
+        initial_step,
+    )
+
     for epoch_i in range(epoch, conf.train.max_epoches):
         train_loss = train(network, train_loader, conf.train, epoch_i, optimizer)
-        test_loss = test(network, test_loader, conf.train)
+        log_step = epoch_i + 1
+        test_loss, _ = log_validation_metrics(
+            network,
+            test_loader,
+            eval_loader,
+            conf,
+            args.log,
+            log_step,
+        )
         print("train loss: %f test loss: %f" % (train_loss["loss"], test_loss["loss"]))
 
         if args.log:
-            write_wandb("train", train_loss, epoch_i)
-            write_wandb("test", test_loss, epoch_i)
-            write_wandb("lr", scheduler.optimizer.param_groups[0]["lr"], epoch_i)
-
-        if epoch_i % conf.train.eval_freq == conf.train.eval_freq - 1:
-            eval_state = evaluate(network=network, loader=eval_loader, confs=conf.train)
-            if args.log:
-                write_wandb("eval/loss", eval_state["loss"]["loss"].mean(), epoch_i)
-                write_wandb("eval/dist", eval_state["loss"]["dist"].mean(), epoch_i)
-            if "supervise_pos" in conf.train:
-                print("eval pos: %f " % (eval_state["loss"]["loss"].mean()))
-            else:
-                print("eval vel: %f " % (eval_state["loss"]["loss"].mean()))
+            write_wandb("train", train_loss, log_step)
+            write_wandb("lr", scheduler.optimizer.param_groups[0]["lr"], log_step)
 
         scheduler.step(test_loss["loss"])
         if test_loss["loss"] < best_loss:
