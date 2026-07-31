@@ -106,7 +106,7 @@ class Euroc(Sequence):
         self.data["gt_time"] = gt_data[:, 0] / 1e9
         self.data["pos"] = gt_data[:, 1:4]
         self.data["quat"] = gt_data[:, 4:8]  # w, x, y, z
-        self.data["velocity"] = gt_data[:, -9:-6]
+        self.data["velocity"] = gt_data[:, -9:-6] # Reads it correctly as vx, vy, vz and not in reverse order
 
     def interp_rot(self, time, opt_time, quat):
         imu_dt = torch.Tensor(time - opt_time[0])
