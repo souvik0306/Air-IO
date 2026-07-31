@@ -248,6 +248,7 @@ class TLab(Sequence):
             if coordinate == "glob_coord":
                 self.data["gyro"] = self.data["gt_orientation"] @ self.data["gyro"]
                 self.data["acc"] = self.data["gt_orientation"] @ self.data["acc"]
+ # body_coord already converts velocity from world to body frame, so no additional transformation is needed
             elif coordinate == "body_coord":
                 self.g_vector = self.data["gt_orientation"].Inv() @ self.g_vector
                 if mode != "infevaluate" and mode != "inference":
