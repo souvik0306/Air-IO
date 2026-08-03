@@ -275,4 +275,9 @@ if __name__ == "__main__":
         )
 
     if args.log:
+        best_ckpt_path = os.path.join(conf.general.exp_dir, "ckpt/best_model.ckpt")
+        if os.path.isfile(best_ckpt_path):
+            artifact = wandb.Artifact("best_model", type="model")
+            artifact.add_file(best_ckpt_path)
+            wandb.log_artifact(artifact)
         wandb.finish()
