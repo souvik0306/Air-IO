@@ -1,5 +1,6 @@
 import argparse
 import os
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import torch
@@ -178,11 +179,13 @@ if __name__ == "__main__":
         wandb.disabled = True
         print("wandb is disabled")
     else:
+        sgt_tz = timezone(timedelta(hours=8))
+        run_name = f"{conf_name}_{datetime.now(sgt_tz).strftime('%Y%m%d_%H%M%S')}"
         wandb.init(
             project="AirIO" + exp_folder,
             config=conf.train,
             group=conf.train.network,
-            name=conf_name,
+            name=run_name,
         )
         wandb.config.update({"data_drives": collect_data_drives(conf.dataset)})
 
