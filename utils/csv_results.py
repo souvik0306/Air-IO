@@ -15,6 +15,8 @@ def save_flight_velocity_csv(save_dir, flight_name, time_tensor, vel_tensor):
     vel_np = vel_np[:length]
 
     out_path = os.path.join(save_dir, f"{flight_name}_velocity.csv")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
     with open(out_path, "w", newline="") as file_obj:
         writer = csv.writer(file_obj)
         writer.writerow(["time", "vel_x", "vel_y", "vel_z"])

@@ -11,6 +11,15 @@ def _euroc_to_tlab_xyz(xyz):
     """Convert vectors from EuRoC frame [x, y, z] to TLab frame."""
     return torch.stack((xyz[..., 2], -xyz[..., 1], xyz[..., 0]), dim=-1)
 
+
+def _save_figure(fig, out_path, **savefig_kwargs):
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    fig.savefig(out_path, **savefig_kwargs)
+
+
 def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, label="AirIO"):
     """Visualize velocity over time.
 
@@ -96,7 +105,11 @@ def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, labe
     # plt.close(fig_pos)
 
     fig_vel.tight_layout()
-    plt.savefig(os.path.join(save_folder, save_prefix + "_velocity.png"), dpi=600)
+    _save_figure(
+        fig_vel,
+        os.path.join(save_folder, save_prefix + "_velocity.png"),
+        dpi=600,
+    )
     plt.close(fig_vel)
 
 WINDOWS = {
@@ -313,7 +326,8 @@ def visualize_window_results(
         f"{flight_name}_window_velocity.png",
     )
 
-    fig_vel.savefig(
+    _save_figure(
+        fig_vel,
         velocity_path,
         dpi=600,
         bbox_inches="tight",
@@ -354,8 +368,10 @@ def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=
             )
     plt.tight_layout()
     if save_folder is not None:
-        plt.savefig(
-            os.path.join(save_folder, save_prefix + "_orientation_compare.png"), dpi=600
+        _save_figure(
+            fig,
+            os.path.join(save_folder, save_prefix + "_orientation_compare.png"),
+            dpi=600,
         )
     plt.show()
     plt.close()
@@ -391,8 +407,10 @@ def visualize_velocity(save_prefix, gtstate, outstate, refstate=None, save_folde
 
     plt.tight_layout()
     if save_folder is not None:
-        plt.savefig(
-            os.path.join(save_folder, save_prefix + ".png"), dpi=600
+        _save_figure(
+            fig,
+            os.path.join(save_folder, save_prefix + ".png"),
+            dpi=600,
         )
     plt.show()
     plt.close()
