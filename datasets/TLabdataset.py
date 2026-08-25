@@ -170,8 +170,8 @@ class TLab(Sequence):
         """Apply TLab-to-EuRoC frame alignment for IMU and GT state."""
         self.align_imu_to_euroc_frame()
         self.align_orientation_to_euroc_frame()
-        self.align_position_to_euroc_frame()
-        self.align_velocity_to_euroc_frame()
+        # self.align_position_to_euroc_frame()
+        # self.align_velocity_to_euroc_frame()
 
     def use_aligned_ground_truth(self):
         """Use GT directly because TLab IMU and GT rows are already time-aligned."""
