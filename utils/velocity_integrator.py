@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from utils import move_to
+from utils import build_dataset_save_prefix
 
 
 class Velocity_Integrator(nn.Module):
@@ -118,7 +119,9 @@ if __name__ == "__main__":
                 )
                 init = dataset.get_init_value()
 
-                inference_state = inference_state_load[data_name]
+                save_prefix = build_dataset_save_prefix(data_conf, data_name)
+                inference_key = save_prefix if save_prefix in inference_state_load else data_name
+                inference_state = inference_state_load[inference_key]
 
                 integrator = Velocity_Integrator(
                                     init['pos']).to(args.device).double()

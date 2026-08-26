@@ -15,10 +15,11 @@ from pyhocon import ConfigFactory
 from datasets import imu_seq_collate,SeqDataset
  
 from utils import CPU_Unpickler, integrate, interp_xyz
+from utils import build_dataset_save_prefix
 from utils.velocity_integrator import Velocity_Integrator, integrate_pos
 from utils.csv_results import save_flight_velocity_csv
 
-from utils.visualize_state import visualize_motion, visualize_window_results
+from utils.visualize_state import visualize_motion
  
 def calculate_rte(outstate,duration, step_size):
     poses, poses_gt = outstate['poses'],outstate['poses_gt'][1:,:]
@@ -27,7 +28,7 @@ def calculate_rte(outstate,duration, step_size):
     dp_gt = poses_gt[duration-1:] - poses_gt[:-duration+1]
     rte = (dp - dp_gt).norm(dim=-1)  
     return rte
-    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", type=str, default="cpu", help="cuda or cpu")
@@ -98,7 +99,9 @@ if __name__ == '__main__':
                 motion_dataset = SeqDataset(data_conf.data_root, data_name, args.device, name = data_conf.name, duration=args.seqlen, step_size=args.seqlen, drop_last=False, conf = dataset_conf)
                 motion_loader = Data.DataLoader(dataset=motion_dataset, batch_size=1, collate_fn=imu_seq_collate, shuffle=False, drop_last=False)
             
-                inference_state = inference_state_load[data_name] 
+                save_key = build_dataset_save_prefix(data_conf, data_name)
+                inference_key = save_key if save_key in inference_state_load else data_name
+                inference_state = inference_state_load[inference_key]
                 gt_ts =  motion_dataset.data['time']
                 vel_ts = inference_state['ts']
                 indices = torch.cat([torch.where(gt_ts == item)[0] for item in vel_ts[:,0]]).to(torch.int32)
@@ -116,11 +119,6 @@ if __name__ == '__main__':
                         vel_dist = inference_state['net_vel'] - motion_dataset.data['velocity'][indices,:]    
                         net_vel = interp_xyz(gt_ts, vel_ts[:,0], inference_state['net_vel'])
 
-                if data_conf.name == "BlackBird":
-                    save_prefix = os.path.dirname(data_name).split('/')[1]
-                else:
-                    save_prefix = data_name
-               
                 dt = gt_ts[1:] - gt_ts[:-1]
                 data_inte = {"vel":net_vel,'dt':dt}
                 
@@ -134,11 +132,13 @@ if __name__ == '__main__':
                 inf_rte = calculate_rte(inf_outstate, args.seqlen,args.seqlen)
 
                 # Save per-flight velocity output aligned to gt timestamps.
-                save_flight_velocity_csv(csv_folder, data_name, gt_ts, net_vel)
+                save_flight_velocity_csv(csv_folder, save_key, gt_ts, net_vel)
 
                 #save loss result
                 result_dic = {
-                    'name': data_name,      
+                    'name': save_key,
+                    'data_name': data_name,
+                    'data_root': data_conf.data_root,
                     'ATE':torch.sqrt((inf_outstate['pos_dist']**2).mean()).item(),
                     'AVE':inf_outstate['vel_dist'].mean().item(),
                     'RP_RMSE': np.sqrt((inf_rte**2).mean()).numpy().item(),
@@ -156,14 +156,12 @@ if __name__ == '__main__':
                 print("pos_err: ", inf_outstate['pos_dist'].mean())
                 print("rte",inf_rte.mean())
 
-            visualize_motion(save_prefix, folder, outstate, inf_outstate, ts=gt_ts)
-            visualize_window_results(
-                save_prefix,
-                folder,
-                outstate,
-                inf_outstate,
-                gt_ts,
-            )
+            if data_conf.name == "BlackBird":
+                plot_prefix = os.path.dirname(data_name).split('/')[1]
+            else:
+                plot_prefix = save_key
+
+            visualize_motion(plot_prefix, folder, outstate, inf_outstate, ts=gt_ts)
         file_path = os.path.join(folder, "result.json")
         with open(file_path, 'w') as f: 
             json.dump(AllResults, f, indent=4)

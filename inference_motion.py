@@ -12,6 +12,7 @@ from pyhocon import ConfigFactory
 
 from datasets import collate_fcs, SeqeuncesMotionDataset
 from model import net_dict, ONNXWrapper
+from utils import build_dataset_save_prefix
 from utils import *
 
 
@@ -147,7 +148,8 @@ if __name__ == '__main__':
                     inference_state["cov"] = torch.zeros_like(inference_state["net_vel"])         
             inference_state['ts'] = inference_state['ts']
             inference_state['net_vel'] = inference_state['net_vel'][0] #TODO: batch size != 1
-            net_out_result[path] = inference_state
+            save_key = build_dataset_save_prefix(data_conf, path)
+            net_out_result[save_key] = inference_state
 
     net_result_path = os.path.join(conf.general.exp_dir, 'net_output.pickle')
     print("save netout, ", net_result_path)

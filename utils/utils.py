@@ -18,6 +18,39 @@ def save_state(out_states:dict, in_state:dict):
         else:
             out_states[k] = [v]
 
+
+def _get_conf_value(conf, key, default=None):
+    if hasattr(conf, key):
+        return getattr(conf, key)
+    try:
+        return conf[key]
+    except (KeyError, TypeError):
+        return default
+
+
+def make_dataset_save_prefix(data_root, data_name):
+    dataset_root = os.path.basename(os.path.normpath(str(data_root)))
+    data_name = str(data_name)
+    if not dataset_root:
+        return data_name
+    return os.path.join(dataset_root, data_name)
+
+
+def build_dataset_save_prefix(data_conf, data_name):
+    if _get_conf_value(data_conf, "name") != "TLab":
+        return data_name
+    return make_dataset_save_prefix(_get_conf_value(data_conf, "data_root"), data_name)
+
+
+def get_orientation_state(loaded_data, data_root, data_name):
+    save_key = make_dataset_save_prefix(data_root, data_name)
+    if save_key in loaded_data:
+        return loaded_data[save_key]
+    if data_name in loaded_data:
+        return loaded_data[data_name]
+    raise KeyError(f"Orientation data not found for {data_name!r} or {save_key!r}")
+
+
 def Gaussian_noise(num_nodes, sigma_x=0.05 ,sigma_y=0.05, sigma_z=0.05):
     std = torch.stack([torch.ones(num_nodes)*sigma_x, torch.ones(num_nodes)*sigma_y, torch.ones(num_nodes)*sigma_z], dim=-1)
     return torch.normal(mean = 0, std = std)

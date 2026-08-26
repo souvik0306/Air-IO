@@ -6,6 +6,7 @@ import pypose as pp
 import torch
 from scipy.spatial.transform import Rotation
 
+from utils import get_orientation_state
 from .dataset import Sequence
 
 
@@ -269,7 +270,11 @@ class TLab(Sequence):
             with open(exp_path, "rb") as file:
                 loaded_data = pickle.load(file)
 
-            state = loaded_data[data_name]
+            state = get_orientation_state(
+                loaded_data,
+                self.data_root,
+                data_name,
+            )
             if rotation_type.lower() == "airimu":
                 self.data["gt_orientation"] = state["airimu_rot"]
             elif rotation_type.lower() == "integration":

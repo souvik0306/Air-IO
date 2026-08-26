@@ -12,6 +12,7 @@ from pyhocon import ConfigFactory
 from datasets import SeqInfDataset, SeqDataset, imu_seq_collate
 
 from utils import CPU_Unpickler, integrate
+from utils import build_dataset_save_prefix
 from utils.visualize_state import visualize_rotations
 import pickle
 
@@ -79,6 +80,7 @@ if __name__ == '__main__':
     for data_conf in dataset_conf.data_list:
         for data_name in data_conf.data_drive:
             print(f"dataset: {data_conf.name}, sequence: {data_name}")
+            save_key = build_dataset_save_prefix(data_conf, data_name)
             save_cur_state = {}
             dataset = SeqDataset(data_conf.data_root, data_name, args.device, name = data_conf.name, duration=200, step_size=200, drop_last=False, conf = dataset_conf)
             init = dataset.get_init_value()
@@ -88,7 +90,8 @@ if __name__ == '__main__':
                 # DataLoader for the raw IMU data
                 loader = Data.DataLoader(dataset=dataset, batch_size=1, collate_fn=imu_seq_collate, shuffle=False, drop_last=False)
                 # DataLoader for the AirIMU corrected data
-                inference_state = inference_state_load[data_name]
+                inference_key = save_key if save_key in inference_state_load else data_name
+                inference_state = inference_state_load[inference_key]
                 dataset_inf = SeqInfDataset(data_conf.data_root, data_name, inference_state, device = args.device, name = data_conf.name,duration=200, step_size=200, drop_last=False, conf = dataset_conf)
                 infloader = Data.DataLoader(dataset=dataset_inf, batch_size=1,
                                             collate_fn=imu_seq_collate,
@@ -130,16 +133,17 @@ if __name__ == '__main__':
             save_cur_state["inte_rot"] = inte_rot
             if infstate is not None:
                 save_cur_state["airimu_rot"] = infstate['orientations'][0]
-            save_states[data_name] = save_cur_state
+            save_states[save_key] = save_cur_state
 
             # Visualize the results 
             if data_conf.name == "BlackBird":
-                save_prefix = os.path.dirname(data_name).split('/')[1]
+                plot_prefix = os.path.dirname(data_name).split('/')[1]
             else:
-                save_prefix = data_name
+                plot_prefix = save_key
+
             if outstate is not None:
                 inf_rot = infstate['orientations'][0] if infstate is not None else None
-                visualize_rotations(save_prefix,outstate['orientations_gt'][0],outstate['orientations'][0],inf_rot=inf_rot,save_folder=folder)
+                visualize_rotations(plot_prefix,outstate['orientations_gt'][0],outstate['orientations'][0],inf_rot=inf_rot,save_folder=folder)
 
         net_result_path = os.path.join(folder, 'orientation_output.pickle')
         print("save orientation, ", net_result_path)

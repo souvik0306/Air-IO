@@ -184,3 +184,7 @@ wandb
 *.c 
 *.o
 .nfs*
+
+check_euroc_gravity_alignment.py
+check_gravity_alignment.py
+sanity_tlab_first_rows.py
