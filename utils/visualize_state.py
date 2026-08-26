@@ -20,7 +20,15 @@ def _save_figure(fig, out_path, **savefig_kwargs):
     fig.savefig(out_path, **savefig_kwargs)
 
 
-def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, label="AirIO"):
+def visualize_motion(
+    save_prefix,
+    save_folder,
+    outstate,
+    infstate,
+    ts=None,
+    label="AirIO",
+    save_in_flight_folder=False,
+):
     """Visualize velocity over time.
 
     Parameters
@@ -115,11 +123,12 @@ def visualize_motion(save_prefix, save_folder, outstate, infstate, ts=None, labe
         ax.legend()
 
         fig_vel.tight_layout()
-        _save_figure(
-            fig_vel,
-            os.path.join(save_folder, f"{save_prefix}_velocity_{axis_suffix}.png"),
-            dpi=600,
-        )
+        if save_in_flight_folder:
+            out_path = os.path.join(save_folder, save_prefix, f"velocity_{axis_suffix}.png")
+        else:
+            out_path = os.path.join(save_folder, f"{save_prefix}_velocity_{axis_suffix}.png")
+
+        _save_figure(fig_vel, out_path, dpi=600)
         plt.close(fig_vel)
 
 def visualize_rotations(save_prefix, gt_rot, out_rot, inf_rot=None, save_folder=None):

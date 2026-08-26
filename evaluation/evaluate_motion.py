@@ -161,7 +161,14 @@ if __name__ == '__main__':
             else:
                 plot_prefix = save_key
 
-            visualize_motion(plot_prefix, folder, outstate, inf_outstate, ts=gt_ts)
+            visualize_motion(
+                plot_prefix,
+                folder,
+                outstate,
+                inf_outstate,
+                ts=gt_ts,
+                save_in_flight_folder=data_conf.name == "TLab",
+            )
         file_path = os.path.join(folder, "result.json")
         with open(file_path, 'w') as f: 
             json.dump(AllResults, f, indent=4)
