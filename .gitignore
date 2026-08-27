@@ -170,7 +170,6 @@ dmypy.json
 #sbatch file
 *.err
 *.out
-*.sh
 
 #experiments
 experiments
