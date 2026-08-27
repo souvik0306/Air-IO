@@ -17,8 +17,8 @@ from pyhocon import HOCONConverter as conf_convert
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from model.losses import get_motion_loss, get_motion_RMSE
-from utils import (cat_state, move_to, save_ckpt, save_state,
-                   write_wandb)
+from utils import (DatasetLossTracker, cat_state, move_to, print_dataset_losses,
+                   save_ckpt, save_state, write_wandb)
 import copy
 
 def train(network, loader, confs, epoch, optimizer):
@@ -28,6 +28,7 @@ def train(network, loader, confs, epoch, optimizer):
     """
     network.train()
     losses, pred_cov = 0, 0
+    dataset_losses = DatasetLossTracker(loader, confs, get_motion_loss)
 
     t_range = tqdm.tqdm(loader)
     for i, (data,_, label) in enumerate(t_range):
@@ -36,6 +37,8 @@ def train(network, loader, confs, epoch, optimizer):
         inte_state = network(data, rot)
         gt_label = network.get_label(label['gt_vel'])
         loss_state = get_motion_loss(inte_state, gt_label, confs)
+
+        dataset_losses.update(label["dataset_id"], inte_state, gt_label)
 
         # statistics
         losses += loss_state["loss"].item()
@@ -52,13 +55,18 @@ def train(network, loader, confs, epoch, optimizer):
         loss_state["loss"].backward()
         optimizer.step()
 
-    return {"loss": (losses / (i + 1)), "cov": (pred_cov / (i + 1))}
+    return {
+        "loss": (losses / (i + 1)),
+        "cov": (pred_cov / (i + 1)),
+        **dataset_losses.metrics(),
+    }
 
 
 def test(network, loader, confs):
     network.eval() 
     with torch.no_grad():
         losses, pred_cov = 0, 0
+        dataset_losses = DatasetLossTracker(loader, confs, get_motion_RMSE)
 
         t_range = tqdm.tqdm(loader)
         for i, (data, _, label) in enumerate(t_range):
@@ -67,6 +75,7 @@ def test(network, loader, confs):
             inte_state = network(data,rot)
             gt_label = network.get_label(label['gt_vel'])
             loss_state = get_motion_RMSE(inte_state, gt_label,confs)
+            dataset_losses.update(label["dataset_id"], inte_state, gt_label)
             # statistics
             losses += loss_state["loss"].item()
 
@@ -85,12 +94,17 @@ def test(network, loader, confs):
 
             t_range.refresh()
             
-    return {"loss": (losses / (i + 1)), "cov": (pred_cov / (i + 1))}
+    return {
+        "loss": (losses / (i + 1)),
+        "cov": (pred_cov / (i + 1)),
+        **dataset_losses.metrics(),
+    }
 
 
 def evaluate(network, loader, confs, silent_tqdm=False):
     network.eval()
     evaluate_states, loss_states, labels = {}, {}, {}
+    dataset_losses = DatasetLossTracker(loader, confs, get_motion_RMSE)
     pred_cov = []
     skip_key = None
 
@@ -103,6 +117,7 @@ def evaluate(network, loader, confs, silent_tqdm=False):
             inte_state = network(data,rot)
             gt_label = network.get_label(label['gt_vel'])
             loss_state = get_motion_RMSE(inte_state, gt_label, confs)
+            dataset_losses.update(label["dataset_id"], inte_state, gt_label)
 
             save_state(loss_states, loss_state)
             save_state(evaluate_states, inte_state)
@@ -130,12 +145,14 @@ def evaluate(network, loader, confs, silent_tqdm=False):
         cat_state(labels)
 
         print("evaluating: vel losses %f, evaluation cov %f" % (loss_states['loss'].mean(), cov.mean()))
+        print_dataset_losses("eval", dataset_losses.metrics())
 
 
     return {
         "evaluate": evaluate_states,
         "evaluate_cov": cov,
         "loss": loss_states,
+        "dataset_metrics": dataset_losses.metrics(),
         "labels": labels,
     }
 

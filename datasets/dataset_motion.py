@@ -112,6 +112,7 @@ class SeqeuncesMotionDataset(SeqeuncesDataset):
             'gt_pos':self.gt_pos[seq_id][frame_id : end_frame_id+1],
             'gt_rot':self.gt_ori[seq_id][frame_id : end_frame_id+1],
             'gt_vel':self.gt_velo[seq_id][frame_id : end_frame_id+1],
+            'dataset_id': torch.tensor(seq_id),
         }
         return {**data, **init_state, **label}
 

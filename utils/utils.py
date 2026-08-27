@@ -140,10 +140,62 @@ def write_board(writer, objs, epoch_i, header = ''):
 def write_wandb(header, objs, epoch_i):
     if isinstance(objs, dict):
         for k, v in objs.items():
-            if isinstance(v, float):
+            # Per-drive metrics are printed to the job log only; avoid creating
+            # a separate W&B chart for every flight.
+            if isinstance(v, float) and not k.startswith("dataset/"):
                 wandb.log({os.path.join(header, k): v}, epoch_i)
     else:
         wandb.log({header: objs}, step = epoch_i)
+
+
+class DatasetLossTracker:
+    """Accumulate sample-weighted losses for each data drive."""
+
+    def __init__(self, loader, confs, loss_fn):
+        self.dataset_names = loader.dataset.dataset_names
+        self.confs = confs
+        self.loss_fn = loss_fn
+        self.totals = {}
+
+    @staticmethod
+    def _slice(state, mask):
+        if torch.is_tensor(state):
+            return state[mask].detach()
+        if isinstance(state, dict):
+            return {
+                key: DatasetLossTracker._slice(value, mask)
+                for key, value in state.items()
+            }
+        return state
+
+    def update(self, dataset_ids, prediction, target):
+        with torch.no_grad():
+            for dataset_id in dataset_ids.unique():
+                mask = dataset_ids == dataset_id
+                source = self.dataset_names[dataset_id.item()]
+                loss = self.loss_fn(
+                    self._slice(prediction, mask),
+                    self._slice(target, mask),
+                    self.confs,
+                )["loss"].mean().item()
+                count = mask.sum().item()
+                entry = self.totals.setdefault(source, [0.0, 0])
+                entry[0] += loss * count
+                entry[1] += count
+
+    def metrics(self):
+        return {
+            f"dataset/{source}/loss": loss_sum / count
+            for source, (loss_sum, count) in self.totals.items()
+            if count
+        }
+
+
+def print_dataset_losses(split, metrics):
+    for key, value in metrics.items():
+        if key.startswith("dataset/") and key.endswith("/loss"):
+            dataset_name = key[len("dataset/") : -len("/loss")]
+            print(f"{split} loss [{dataset_name}]: {value:f}")
 
 def save_ckpt(network, optimizer, scheduler, epoch_i, test_loss, conf, save_best = False):
     if epoch_i%conf.train.save_freq==conf.train.save_freq-1:

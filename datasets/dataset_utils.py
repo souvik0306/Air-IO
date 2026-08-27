@@ -72,6 +72,7 @@ def motion_collate_data(data):
     gt_pos = torch.stack([d["gt_pos"] for d in data])
     gt_rot = torch.stack([d["gt_rot"] for d in data])
     gt_vel = torch.stack([d["gt_vel"] for d in data])
+    dataset_id = torch.stack([d["dataset_id"] for d in data])
 
     init_pos = torch.stack([d["init_pos"] for d in data])
     init_rot = torch.stack([d["init_rot"] for d in data])
@@ -96,6 +97,7 @@ def motion_collate_data(data):
             "gt_pos": gt_pos,
             "gt_vel": gt_vel,
             "gt_rot": gt_rot,
+            "dataset_id": dataset_id,
         },
     )
     

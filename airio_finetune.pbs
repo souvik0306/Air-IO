@@ -14,10 +14,20 @@ module load apptainer/1.4.1
 IMAGE="${AIRIO_IMAGE:-/app1/common/singularity-img/vanda/pytorch_2.5_cuda_12.4_unsloth.sif}"
 CONFIG="${AIRIO_CONFIG:-configs/TLab/finetune_motion_body.conf}"
 CHECKPOINT="${AIRIO_CHECKPOINT:-AirIO_EuRoC/AirIO_checkpoint/best_model.ckpt}"
+DATACONF="${AIRIO_DATACONF:-configs/datasets/TLab/tlab_body.conf}"
+SEQLEN="${AIRIO_SEQLEN:-200}"
+
+# Match the experiment path constructed by train_motion_finetune.py:
+# <general.exp_dir>/<config filename without extension>.
+CONFIG_EXPERIMENT="$(apptainer exec -e "$IMAGE" python3 -c \
+    'import os, sys; from pyhocon import ConfigFactory; p=sys.argv[1]; c=ConfigFactory.parse_file(p); print(os.path.join(c.general.exp_dir, os.path.basename(p).split(".")[0]))' \
+    "$CONFIG")"
+EXPERIMENT="${AIRIO_EXPERIMENT:-$CONFIG_EXPERIMENT}"
 
 echo "Working directory: $(pwd)"
 echo "Compute node: $(hostname)"
 echo "Config: $CONFIG"
+echo "Experiment: $EXPERIMENT"
 echo "Pretrained checkpoint: $CHECKPOINT"
 echo "GPU:"
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
@@ -28,5 +38,26 @@ apptainer exec --nv -e "$IMAGE" \
         --config "$CONFIG" \
         --pretrained_ckpt "$CHECKPOINT" \
         --device cuda:0
+
+echo "Saving reference orientations"
+apptainer exec -e "$IMAGE" \
+    python3 evaluation/save_ori.py \
+        --dataconf "$DATACONF" \
+        --savedir ./orientations \
+        --device cpu
+
+echo "Running motion inference"
+apptainer exec --nv -e "$IMAGE" \
+    python3 inference_motion.py \
+        --config "$CONFIG" \
+        --load "$EXPERIMENT/ckpt/best_model.ckpt" \
+        --seqlen "$SEQLEN"
+
+echo "Evaluating motion predictions"
+apptainer exec -e "$IMAGE" \
+    python3 evaluation/evaluate_motion.py \
+        --dataconf "$DATACONF" \
+        --exp "$EXPERIMENT" \
+        --seqlen "$SEQLEN"
 
 echo "Air-IO fine-tuning finished"

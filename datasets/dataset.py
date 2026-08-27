@@ -1,4 +1,5 @@
 import argparse
+import os
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -203,6 +204,9 @@ class SeqeuncesDataset(Data.Dataset):
         self.conf = data_set_config
         self.gravity = self.conf.gravity if "gravity" in self.conf.keys() else 9.81007
         self.weights = []
+        # Keep one name per loaded drive. dataset_id indexes this list, allowing
+        # the training loop to aggregate metrics per flight instead of per root.
+        self.dataset_names = []
 
         if mode is None:
             self.mode = data_set_config.mode
@@ -215,6 +219,10 @@ class SeqeuncesDataset(Data.Dataset):
         if data_path is None:
             for conf in data_set_config.data_list:
                 for path in conf.data_drive:
+                    root_name = os.path.basename(os.path.normpath(str(conf.data_root)))
+                    self.dataset_names.append(
+                        os.path.join(root_name or str(conf.name), str(path))
+                    )
                     self.construct_index_map(
                         conf, conf["data_root"], path, self.seq_idx
                     )
@@ -222,10 +230,18 @@ class SeqeuncesDataset(Data.Dataset):
         ## the design of dataroot provide a quick way to introduce multiple sequences in eval set, but introduce some inconsistency
         elif data_root is None:
             conf = data_set_config.data_list[0]
+            root_name = os.path.basename(os.path.normpath(str(conf.data_root)))
+            self.dataset_names.append(
+                os.path.join(root_name or str(conf.name), str(data_path))
+            )
             self.construct_index_map(conf, conf["data_root"], data_path, self.seq_idx)
             self.seq_idx += 1
         else:
             conf = data_set_config.data_list[0]
+            root_name = os.path.basename(os.path.normpath(str(data_root)))
+            self.dataset_names.append(
+                os.path.join(root_name or str(conf.name), str(data_path))
+            )
             self.construct_index_map(conf, data_root, data_path, self.seq_idx)
             self.seq_idx += 1
 

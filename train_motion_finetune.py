@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from datasets import SeqeuncesMotionDataset, collate_fcs
 from model import net_dict
 from train_motion import evaluate, test, train
-from utils import save_ckpt, write_wandb
+from utils import print_dataset_losses, save_ckpt, write_wandb
 
 
 def torch_load(path, device):
@@ -66,6 +66,7 @@ def build_loader(dataset, batch_size, shuffle, collate_fn, drop_last=False):
 def log_validation_metrics(network, test_loader, eval_loader, conf, log_enabled, step):
     test_loss = test(network, test_loader, conf.train)
     print("test loss: %f" % (test_loss["loss"]))
+    print_dataset_losses("test", test_loss)
     if log_enabled:
         write_wandb("test", test_loss, step)
 
@@ -142,7 +143,6 @@ if __name__ == "__main__":
     conf = ConfigFactory.parse_file(args.config)
 
     conf.train.device = args.device
-    exp_folder = os.path.split(conf.general.exp_dir)[-1]
     conf_name = os.path.split(args.config)[-1].split(".")[0]
     conf["general"]["exp_dir"] = os.path.join(conf.general.exp_dir, conf_name)
     if "gravity" in conf.dataset.train:
@@ -181,8 +181,9 @@ if __name__ == "__main__":
     else:
         sgt_tz = timezone(timedelta(hours=8))
         run_name = f"{conf_name}_{datetime.now(sgt_tz).strftime('%Y%m%d_%H%M%S')}"
+        wandb_project = conf.general.get("wandb_project", "AirIO")
         wandb.init(
-            project="AirIO" + exp_folder,
+            project=wandb_project,
             config=conf.train,
             group=conf.train.network,
             name=run_name,
@@ -255,6 +256,7 @@ if __name__ == "__main__":
             log_step,
         )
         print("train loss: %f test loss: %f" % (train_loss["loss"], test_loss["loss"]))
+        print_dataset_losses("train", train_loss)
 
         if args.log:
             write_wandb("train", train_loss, log_step)
