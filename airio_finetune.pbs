@@ -1,0 +1,32 @@
+#PBS -S /bin/bash
+#PBS -q auto_free
+#PBS -j oe
+#PBS -N airio_finetune
+#PBS -l walltime=24:00:00
+#PBS -l select=1:ncpus=36:mem=250gb:ngpus=1
+
+set -euo pipefail
+
+cd "$PBS_O_WORKDIR"
+
+module load apptainer/1.4.1
+
+IMAGE="${AIRIO_IMAGE:-/app1/common/singularity-img/vanda/pytorch_2.5_cuda_12.4_unsloth.sif}"
+CONFIG="${AIRIO_CONFIG:-configs/TLab/finetune_motion_body.conf}"
+CHECKPOINT="${AIRIO_CHECKPOINT:-AirIO_EuRoC/AirIO_checkpoint/best_model.ckpt}"
+
+echo "Working directory: $(pwd)"
+echo "Compute node: $(hostname)"
+echo "Config: $CONFIG"
+echo "Pretrained checkpoint: $CHECKPOINT"
+echo "GPU:"
+nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
+
+echo "Starting Air-IO fine-tuning"
+apptainer exec --nv -e "$IMAGE" \
+    python3 -u train_motion_finetune.py \
+        --config "$CONFIG" \
+        --pretrained_ckpt "$CHECKPOINT" \
+        --device cuda:0
+
+echo "Air-IO fine-tuning finished"
