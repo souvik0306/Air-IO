@@ -25,7 +25,9 @@ core*
 EKFresult/*
 EKF/EKFresult/*
 results/*
-
+*.png
+*.zip
+AirIO_EuRoC/*
 #ignore
 data/
 run_eval.sh
