@@ -313,6 +313,7 @@ if __name__ == "__main__":
                 write_wandb('eval/dist', eval_state['loss']['dist'].mean(), epoch_i)
                 if 'cov_loss' in eval_state['loss']:
                     write_wandb('eval/cov_loss', eval_state['loss']['cov_loss'].mean(), epoch_i)
+                write_wandb('eval', eval_state['dataset_metrics'], epoch_i)
             if "supervise_pos" in conf.train:
                 print("eval pos: %f "%(eval_state['loss']['loss'].mean()))
             else:

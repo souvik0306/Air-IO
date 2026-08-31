@@ -149,13 +149,35 @@ def write_wandb(header, objs, epoch_i):
 
 
 class DatasetLossTracker:
-    """Accumulate sample-weighted losses for each data drive."""
+    """Accumulate sample-weighted losses by data drive and speed profile."""
 
     def __init__(self, loader, confs, loss_fn):
         self.dataset_names = loader.dataset.dataset_names
         self.confs = confs
         self.loss_fn = loss_fn
         self.totals = {}
+        self.speed_totals = {}
+        self.speed_bins = self._get_speed_bins(confs)
+
+    @staticmethod
+    def _get_speed_bins(confs):
+        """Return strictly increasing speed-bin edges in m/s."""
+        edges = _get_conf_value(confs, "speed_profile_bins", [0, 1, 2, 3, 4])
+        edges = [float(edge) for edge in edges]
+        if not edges or edges[0] != 0.0:
+            edges.insert(0, 0.0)
+        if any(right <= left for left, right in zip(edges, edges[1:])):
+            raise ValueError("speed_profile_bins must be strictly increasing")
+        return edges
+
+    @staticmethod
+    def _speed_profile_name(lower, upper=None):
+        def format_edge(edge):
+            return str(int(edge)) if edge.is_integer() else f"{edge:g}"
+
+        if upper is None:
+            return f">={format_edge(lower)}mps"
+        return f"{format_edge(lower)}-{format_edge(upper)}mps"
 
     @staticmethod
     def _slice(state, mask):
@@ -183,12 +205,44 @@ class DatasetLossTracker:
                 entry[0] += loss * count
                 entry[1] += count
 
+            # A sample is assigned using its mean ground-truth speed over the
+            # window. The loss itself is unchanged and is recomputed on only
+            # the samples belonging to that profile.
+            sample_speed = torch.linalg.vector_norm(target, dim=-1)
+            if sample_speed.ndim > 1:
+                sample_speed = sample_speed.mean(dim=tuple(range(1, sample_speed.ndim)))
+
+            for index, lower in enumerate(self.speed_bins):
+                upper = (self.speed_bins[index + 1]
+                         if index + 1 < len(self.speed_bins) else None)
+                mask = sample_speed >= lower
+                if upper is not None:
+                    mask &= sample_speed < upper
+                count = mask.sum().item()
+                if not count:
+                    continue
+                loss = self.loss_fn(
+                    self._slice(prediction, mask),
+                    self._slice(target, mask),
+                    self.confs,
+                )["loss"].mean().item()
+                profile = self._speed_profile_name(lower, upper)
+                entry = self.speed_totals.setdefault(profile, [0.0, 0])
+                entry[0] += loss * count
+                entry[1] += count
+
     def metrics(self):
-        return {
+        dataset_metrics = {
             f"dataset/{source}/loss": loss_sum / count
             for source, (loss_sum, count) in self.totals.items()
             if count
         }
+        speed_metrics = {
+            f"speed/{profile}/loss": loss_sum / count
+            for profile, (loss_sum, count) in self.speed_totals.items()
+            if count
+        }
+        return {**dataset_metrics, **speed_metrics}
 
 
 def print_dataset_losses(split, metrics):
@@ -196,6 +250,9 @@ def print_dataset_losses(split, metrics):
         if key.startswith("dataset/") and key.endswith("/loss"):
             dataset_name = key[len("dataset/") : -len("/loss")]
             print(f"{split} loss [{dataset_name}]: {value:f}")
+        elif key.startswith("speed/") and key.endswith("/loss"):
+            speed_profile = key[len("speed/") : -len("/loss")]
+            print(f"{split} loss [speed {speed_profile}]: {value:f}")
 
 def save_ckpt(network, optimizer, scheduler, epoch_i, test_loss, conf, save_best = False):
     if epoch_i%conf.train.save_freq==conf.train.save_freq-1:

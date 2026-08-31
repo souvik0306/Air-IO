@@ -78,6 +78,7 @@ def log_validation_metrics(network, test_loader, eval_loader, conf, log_enabled,
             write_wandb("eval/dist", eval_state["loss"]["dist"].mean(), step)
             if "cov_loss" in eval_state["loss"]:
                 write_wandb("eval/cov_loss", eval_state["loss"]["cov_loss"].mean(), step)
+            write_wandb("eval", eval_state["dataset_metrics"], step)
         if "supervise_pos" in conf.train:
             print("eval pos: %f " % (eval_state["loss"]["loss"].mean()))
         else:
