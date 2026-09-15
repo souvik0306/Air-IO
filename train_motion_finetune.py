@@ -11,6 +11,7 @@ from pyhocon import HOCONConverter as conf_convert
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from datasets import SeqeuncesMotionDataset, collate_fcs
+from datasets.gmm_sampling import build_gmm_sampler
 from model import net_dict
 from train_motion import evaluate, test, train
 from utils import print_dataset_losses, save_ckpt, write_wandb
@@ -53,11 +54,12 @@ def load_resume_state(network, optimizer, scheduler, ckpt_path, device):
     return epoch, best_loss
 
 
-def build_loader(dataset, batch_size, shuffle, collate_fn, drop_last=False):
+def build_loader(dataset, batch_size, shuffle, collate_fn, drop_last=False, sampler=None):
     return Data.DataLoader(
         dataset=dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle if sampler is None else False,
+        sampler=sampler,
         collate_fn=collate_fn,
         drop_last=drop_last,
     )
@@ -162,8 +164,12 @@ if __name__ == "__main__":
         collate_fn_train = collate_fcs["base"]
         collate_fn_test = collate_fcs["base"]
 
+    train_sampler = None
+    if "gmm_sampling" in conf.train and conf.train.gmm_sampling.get("enabled", False):
+        train_sampler = build_gmm_sampler(train_dataset, conf.train.gmm_sampling)
     train_loader = build_loader(
-        train_dataset, conf.train.batch_size, True, collate_fn_train
+        train_dataset, conf.train.batch_size, True, collate_fn_train,
+        sampler=train_sampler,
     )
     test_loader = build_loader(
         test_dataset, conf.train.batch_size, False, collate_fn_test

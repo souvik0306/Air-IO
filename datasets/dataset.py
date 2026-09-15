@@ -245,6 +245,47 @@ class SeqeuncesDataset(Data.Dataset):
             self.construct_index_map(conf, data_root, data_path, self.seq_idx)
             self.seq_idx += 1
 
+        self._exclude_configured_windows()
+
+    def _exclude_configured_windows(self):
+        """Remove windows overlapping configured per-sequence relative-time ranges."""
+        if "exclude_windows" not in self.conf.keys():
+            return
+
+        exclusions = {}
+        for item in self.conf.exclude_windows:
+            sequence = str(item.sequence)
+            start = float(item.start_relative_seconds)
+            end = float(item.end_relative_seconds)
+            if end <= start:
+                raise ValueError(
+                    f"Invalid exclusion for {sequence}: end must be after start"
+                )
+            exclusions.setdefault(sequence, []).append((start, end))
+
+        retained = []
+        removed = 0
+        for seq_id, begin, end in self.index_map:
+            sequence = self.dataset_names[seq_id]
+            ranges = exclusions.get(sequence, ())
+            if not ranges:
+                retained.append([seq_id, begin, end])
+                continue
+            timestamps = self.ts[seq_id]
+            origin = float(timestamps[0])
+            window_start = float(timestamps[min(begin, len(timestamps) - 1)]) - origin
+            window_end = float(timestamps[min(end, len(timestamps) - 1)]) - origin
+            overlaps = any(window_start < stop and window_end > start
+                           for start, stop in ranges)
+            if overlaps:
+                removed += 1
+            else:
+                retained.append([seq_id, begin, end])
+
+        self.index_map = retained
+        if removed:
+            print(f"Excluded {removed} windows using configured relative-time ranges")
+
 
 
     def load_data(self, seq, start_frame, end_frame):
