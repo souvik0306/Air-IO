@@ -54,7 +54,8 @@ def _short_sequence_name(sequence):
     if len(parts) < 3:
         return str(sequence)
     dataset = parts[0].replace("T-Lab_", "").replace("_dataset", "")
-    return f"{dataset} · {parts[-2]} · {parts[-1].replace('flight_', 'F')}"
+    condition = "/".join(parts[1:-1])
+    return f"{dataset} · {condition} · {parts[-1].replace('flight_', 'F')}"
 
 
 def write_provenance_reports(details, weights, prefix):
