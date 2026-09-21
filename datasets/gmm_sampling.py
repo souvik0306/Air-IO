@@ -24,6 +24,16 @@ FEATURE_NAMES = (
     "imu_gyro_x_std", "imu_gyro_y_std", "imu_gyro_z_std",
 )
 
+GMM_DEFAULTS = {
+    "components": 12,
+    "iterations": 100,
+    "seed": 17,
+    "balance_power": 1.0,
+    "rarity_strength": 0.15,
+    "min_weight": 0.2,
+    "max_weight": 5.0,
+}
+
 
 def _numpy(value):
     return value.detach().cpu().double().numpy() if torch.is_tensor(value) else np.asarray(value, dtype=np.float64)
@@ -200,26 +210,46 @@ def dataset_fingerprint(dataset):
     return hashlib.sha256(value).hexdigest()[:16]
 
 
+def settings_fingerprint(settings):
+    """Identify every setting that affects the cached sampling weights."""
+    identity = (tuple(FEATURE_NAMES), tuple(
+        (name, settings[name]) for name in GMM_DEFAULTS
+    ))
+    return hashlib.sha256(repr(identity).encode("utf8")).hexdigest()[:16]
+
+
+def gmm_settings(conf):
+    """Return normalized GMM arguments from a HOCON block or mapping."""
+    return {name: conf.get(name, default) for name, default in GMM_DEFAULTS.items()}
+
+
 def build_gmm_sampler(dataset, conf):
     """Build a replacement sampler from a HOCON ``train.gmm_sampling`` block."""
     cache = str(conf.get("cache_path", ""))
     fingerprint = dataset_fingerprint(dataset)
+    settings = gmm_settings(conf)
+    expected_settings = settings_fingerprint(settings)
     if cache and os.path.isfile(cache):
-        saved = np.load(cache, allow_pickle=False)
-        if len(saved["weights"]) != len(dataset) or str(saved["fingerprint"]) != fingerprint:
-            raise ValueError(f"Stale GMM cache {cache}; regenerate it for this dataset/config")
-        weights = saved["weights"]
+        with np.load(cache, allow_pickle=False) as saved:
+            valid = (
+                len(saved["weights"]) == len(dataset)
+                and str(saved["fingerprint"]) == fingerprint
+                and "settings_fingerprint" in saved
+                and str(saved["settings_fingerprint"]) == expected_settings
+            )
+            if not valid:
+                raise ValueError(
+                    f"Stale GMM cache {cache}; regenerate it for this dataset/config"
+                )
+            weights = saved["weights"].copy()
     else:
-        weights, details = compute_gmm_weights(
-            dataset, components=conf.get("components", 12),
-            iterations=conf.get("iterations", 100), seed=conf.get("seed", 17),
-            balance_power=conf.get("balance_power", 1.0),
-            rarity_strength=conf.get("rarity_strength", 0.15),
-            min_weight=conf.get("min_weight", 0.2), max_weight=conf.get("max_weight", 5.0),
-        )
+        weights, details = compute_gmm_weights(dataset, **settings)
         if cache:
             os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
-            np.savez_compressed(cache, weights=weights, fingerprint=fingerprint, **details)
+            np.savez_compressed(
+                cache, weights=weights, fingerprint=fingerprint,
+                settings_fingerprint=expected_settings, **details,
+            )
     generator = torch.Generator().manual_seed(int(conf.get("seed", 17)))
     count = int(round(len(dataset) * float(conf.get("epoch_multiplier", 1.0))))
     print(f"GMM sampler: {len(weights)} windows, weight range "

@@ -50,7 +50,7 @@ echo "Running motion inference"
 apptainer exec --nv -e "$IMAGE" \
     python3 inference_motion.py \
         --config "$CONFIG" \
-        --load "$EXPERIMENT/ckpt/best_model.ckpt" \
+        --load best_model.ckpt \
         --seqlen "$SEQLEN"
 
 echo "Evaluating motion predictions"

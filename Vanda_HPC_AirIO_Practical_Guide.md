@@ -15,7 +15,7 @@ Use the login node for setup, PBS submission, status checks, and log inspection.
 
 ## 2. Run the one-time setup
 
-The setup script downloads the two TLab datasets, the pretrained Air-IO EuRoC model, and the Python requirements.
+The setup script downloads the three TLab datasets, the pretrained Air-IO EuRoC model, and the Python requirements.
 
 ```bash
 cd ~/Air-IO
@@ -34,6 +34,7 @@ Verify the inputs:
 ```bash
 ls T-Lab_31st_July_dataset
 ls T-Lab_28th_July_dataset
+ls T-Lab_10th_September_dataset
 ls -lh AirIO_EuRoC/AirIO_checkpoint/best_model.ckpt
 ```
 
@@ -55,6 +56,19 @@ grep -nE 'data_root|rot_path|pretrained_ckpt' \
 ```
 
 The training and evaluation dataset paths are repository-relative. The `rot_path` belongs to the inference section and is not read during fine-tuning.
+
+GMM weighting is enabled in the fine-tuning config. On its first launch, training
+computes and saves the cache at `gmm_weights/tlab_train_weights.npz`; later runs
+reuse it only when both the dataset and all GMM settings match. To precompute it
+before requesting a GPU job, run:
+
+```bash
+module load apptainer/1.4.1
+image=/app1/common/singularity-img/vanda/pytorch_2.5_cuda_12.4_unsloth.sif
+apptainer exec -e "$image" python3 build_gmm_weights.py \
+  --config configs/TLab/finetune_motion_body.conf \
+  --plot none
+```
 
 ## 4. Configure Weights & Biases
 

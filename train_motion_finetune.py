@@ -191,7 +191,10 @@ if __name__ == "__main__":
         wandb_project = conf.general.get("wandb_project", "AirIO")
         wandb.init(
             project=wandb_project,
-            config=conf.train,
+            # W&B treats mappings as regular dictionaries and probes optional
+            # keys with ``get``. ConfigTree raises ConfigMissingException for
+            # absent keys, so hand W&B a recursively plain mapping instead.
+            config=conf.train.as_plain_ordered_dict(),
             group=conf.train.network,
             name=run_name,
         )

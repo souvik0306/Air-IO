@@ -34,6 +34,9 @@ download_and_extract \
 download_and_extract \
     "T-Lab_28th_July_dataset" \
     "https://github.com/souvik0306/AirIMU/releases/download/28th_july_hover/T-Lab_28th_July_dataset.zip"
+download_and_extract \
+    "T-Lab_10th_September_dataset" \
+    "https://github.com/souvik0306/AirIMU/releases/download/10th_Sept/T-Lab_10th_September_dataset.zip"
 
 echo "Downloading pretrained Air-IO EuRoC weights"
 download_and_extract \
@@ -50,7 +53,7 @@ if [ ! -f "$checkpoint" ]; then
     exit 1
 fi
 
-for dataset in T-Lab_31st_July_dataset T-Lab_28th_July_dataset; do
+for dataset in T-Lab_31st_July_dataset T-Lab_28th_July_dataset T-Lab_10th_September_dataset; do
     if [ ! -d "./$dataset" ]; then
         echo "ERROR: dataset not found: $dataset"
         exit 1

@@ -8,7 +8,12 @@ import numpy as np
 from pyhocon import ConfigFactory
 
 from datasets import SeqeuncesMotionDataset
-from datasets.gmm_sampling import compute_gmm_weights, dataset_fingerprint
+from datasets.gmm_sampling import (
+    GMM_DEFAULTS,
+    compute_gmm_weights,
+    dataset_fingerprint,
+    settings_fingerprint,
+)
 
 
 def _pca_2d(values):
@@ -229,14 +234,17 @@ def main():
         choices=("train", "test", "eval", "inference", "infevaluate"),
         help="dataset config block to inspect; 'infevaluate' aliases 'inference'",
     )
-    parser.add_argument("--output", default="experiments/tlab_finetune/gmm_weights.npz")
-    parser.add_argument("--components", type=int, default=12)
-    parser.add_argument("--iterations", type=int, default=100)
-    parser.add_argument("--seed", type=int, default=17)
-    parser.add_argument("--balance-power", type=float, default=1.0)
-    parser.add_argument("--rarity-strength", type=float, default=0.15)
-    parser.add_argument("--min-weight", type=float, default=0.2)
-    parser.add_argument("--max-weight", type=float, default=5.0)
+    parser.add_argument(
+        "--output", default=None,
+        help="NPZ path; defaults to train.gmm_sampling.cache_path in --config",
+    )
+    parser.add_argument("--components", type=int, default=None)
+    parser.add_argument("--iterations", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--balance-power", type=float, default=None)
+    parser.add_argument("--rarity-strength", type=float, default=None)
+    parser.add_argument("--min-weight", type=float, default=None)
+    parser.add_argument("--max-weight", type=float, default=None)
     parser.add_argument(
         "--plot", default=None,
         help="dashboard PNG path; defaults beside --output (use 'none' to disable)",
@@ -247,6 +255,16 @@ def main():
     args = parser.parse_args()
 
     conf = ConfigFactory.parse_file(args.config)
+    config_settings = conf.train.get("gmm_sampling", {})
+    settings = {}
+    for name, default in GMM_DEFAULTS.items():
+        cli_value = getattr(args, name)
+        settings[name] = (
+            cli_value if cli_value is not None else config_settings.get(name, default)
+        )
+    output = args.output or config_settings.get(
+        "cache_path", "gmm_weights/tlab_train_weights.npz"
+    )
     config_split = "inference" if args.dataset_split == "infevaluate" else args.dataset_split
     if config_split not in conf.dataset:
         raise ValueError(f"Dataset config has no '{config_split}' block")
@@ -260,28 +278,27 @@ def main():
         data_set_config=dataset_config, device="cpu"
     )
     drop_incomplete_tail_windows(dataset)
-    weights, details = compute_gmm_weights(
-        dataset, args.components, args.iterations, args.seed,
-        args.balance_power, args.rarity_strength, args.min_weight, args.max_weight,
-    )
+    weights, details = compute_gmm_weights(dataset, **settings)
     details["dataset_split"] = np.asarray(args.dataset_split)
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    np.savez_compressed(args.output, weights=weights,
-                        fingerprint=dataset_fingerprint(dataset), **details)
+    os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
+    np.savez_compressed(
+        output, weights=weights, fingerprint=dataset_fingerprint(dataset),
+        settings_fingerprint=settings_fingerprint(settings), **details,
+    )
     labels, counts = np.unique(details["labels"], return_counts=True)
-    print(f"Saved {len(weights)} weights to {args.output}")
+    print(f"Saved {len(weights)} weights to {output}")
     print("GMM component populations:", dict(zip(labels.tolist(), counts.tolist())))
     print(f"weights: min={weights.min():.3f}, mean={weights.mean():.3f}, "
           f"p95={np.percentile(weights, 95):.3f}, max={weights.max():.3f}")
-    report_prefix = args.report_prefix or os.path.splitext(args.output)[0] + "_provenance"
+    report_prefix = args.report_prefix or os.path.splitext(output)[0] + "_provenance"
     window_report, cluster_report = write_provenance_reports(details, weights, report_prefix)
     print(f"Saved window provenance to {window_report}")
     print(f"Saved cluster/flight summary to {cluster_report}")
     plot_path = args.plot
     if plot_path is None:
-        plot_path = os.path.splitext(args.output)[0] + "_dashboard.png"
+        plot_path = os.path.splitext(output)[0] + "_dashboard.png"
     if str(plot_path).lower() != "none":
-        create_dashboard(details, weights, plot_path, args.max_plot_points, args.seed)
+        create_dashboard(details, weights, plot_path, args.max_plot_points, settings["seed"])
         print(f"Saved diversity dashboard to {plot_path}")
 
 
