@@ -141,6 +141,12 @@ if __name__ == '__main__':
                 dataset_conf["mode"] = "infevaluate"
             dataset_conf["exp_dir"] = conf.general.exp_dir
             eval_dataset = SeqeuncesMotionDataset(data_set_config=dataset_conf, data_path=path, data_root=data_conf["data_root"])
+            if len(eval_dataset) == 0:
+                raise ValueError(
+                    "No inference windows were created for "
+                    f"{data_conf['data_root']}/{path}. Check the sequence length, "
+                    "window settings, and configured window exclusions."
+                )
             eval_loader = Data.DataLoader(dataset=eval_dataset, batch_size=args.batch_size, 
                                             shuffle=False, collate_fn=collate_fn, drop_last = False)
             inference_state = inference(network=network, loader = eval_loader, confs=conf.train)    

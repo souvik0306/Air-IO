@@ -5,10 +5,13 @@
 #PBS -l walltime=24:00:00
 #PBS -l select=1:ncpus=36:mem=250gb:ngpus=1
 
+# Stop on errors, unset variables, or failed pipeline commands.
 set -euo pipefail
 
+# -----------------------------------------------------------------------------
+# 1. Initialize the job environment and resolve user-overridable paths.
+# -----------------------------------------------------------------------------
 cd "$PBS_O_WORKDIR"
-
 module load apptainer/1.4.1
 
 IMAGE="${AIRIO_IMAGE:-/app1/common/singularity-img/vanda/pytorch_2.5_cuda_12.4_unsloth.sif}"
@@ -17,13 +20,15 @@ CHECKPOINT="${AIRIO_CHECKPOINT:-AirIO_EuRoC/AirIO_checkpoint/best_model.ckpt}"
 DATACONF="${AIRIO_DATACONF:-configs/datasets/TLab/tlab_body.conf}"
 SEQLEN="${AIRIO_SEQLEN:-200}"
 
-# Match the experiment path constructed by train_motion_finetune.py:
-# <general.exp_dir>/<config filename without extension>.
+# Resolve the same output directory used by train_motion_finetune.py:
+# <general.exp_dir>/<config filename without extension>. AIRIO_EXPERIMENT can
+# override it when inference should use a different completed experiment.
 CONFIG_EXPERIMENT="$(apptainer exec -e "$IMAGE" python3 -c \
     'import os, sys; from pyhocon import ConfigFactory; p=sys.argv[1]; c=ConfigFactory.parse_file(p); print(os.path.join(c.general.exp_dir, os.path.basename(p).split(".")[0]))' \
     "$CONFIG")"
 EXPERIMENT="${AIRIO_EXPERIMENT:-$CONFIG_EXPERIMENT}"
 
+# Record the resolved inputs and allocated GPU in the PBS log.
 echo "Working directory: $(pwd)"
 echo "Compute node: $(hostname)"
 echo "Config: $CONFIG"
@@ -32,6 +37,22 @@ echo "Pretrained checkpoint: $CHECKPOINT"
 echo "GPU:"
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv
 
+# -----------------------------------------------------------------------------
+# 2. Prepare GMM sampling weights.
+#
+# --if-stale reuses a matching cache. If the training split or any GMM setting
+# changed, it regenerates the cache before training starts.
+# -----------------------------------------------------------------------------
+echo "Validating GMM sampling cache"
+apptainer exec -e "$IMAGE" \
+    python3 -u build_gmm_weights.py \
+        --config "$CONFIG" \
+        --plot none \
+        --if-stale
+
+# -----------------------------------------------------------------------------
+# 3. Fine-tune on the GPU. The best checkpoint is written under EXPERIMENT.
+# -----------------------------------------------------------------------------
 echo "Starting Air-IO fine-tuning"
 apptainer exec --nv -e "$IMAGE" \
     python3 -u train_motion_finetune.py \
@@ -39,6 +60,9 @@ apptainer exec --nv -e "$IMAGE" \
         --pretrained_ckpt "$CHECKPOINT" \
         --device cuda:0
 
+# -----------------------------------------------------------------------------
+# 4. Export reference orientations required by motion inference.
+# -----------------------------------------------------------------------------
 echo "Saving reference orientations"
 apptainer exec -e "$IMAGE" \
     python3 evaluation/save_ori.py \
@@ -46,6 +70,9 @@ apptainer exec -e "$IMAGE" \
         --savedir ./orientations \
         --device cpu
 
+# -----------------------------------------------------------------------------
+# 5. Run inference with the best checkpoint produced by fine-tuning.
+# -----------------------------------------------------------------------------
 echo "Running motion inference"
 apptainer exec --nv -e "$IMAGE" \
     python3 inference_motion.py \
@@ -53,6 +80,9 @@ apptainer exec --nv -e "$IMAGE" \
         --load best_model.ckpt \
         --seqlen "$SEQLEN"
 
+# -----------------------------------------------------------------------------
+# 6. Compute trajectory and velocity metrics from the saved predictions.
+# -----------------------------------------------------------------------------
 echo "Evaluating motion predictions"
 apptainer exec -e "$IMAGE" \
     python3 evaluation/evaluate_motion.py \

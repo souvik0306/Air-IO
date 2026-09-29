@@ -251,6 +251,11 @@ class SeqeuncesDataset(Data.Dataset):
         """Remove windows overlapping configured per-sequence relative-time ranges."""
         if "exclude_windows" not in self.conf.keys():
             return
+        # Whole-flight inference uses one window for the complete trajectory.
+        # Applying a local exclusion there would discard the entire flight.
+        # Keep exclusions for windowed train/test/evaluation modes instead.
+        if self.mode == "inference":
+            return
 
         exclusions = {}
         for item in self.conf.exclude_windows:

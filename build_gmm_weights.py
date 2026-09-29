@@ -226,6 +226,23 @@ def create_dashboard(details, weights, output, max_points=20000, seed=17):
     return output
 
 
+def cache_is_current(path, dataset, settings):
+    """Return whether an existing cache matches this dataset and GMM setup."""
+    if not os.path.isfile(path):
+        return False
+    try:
+        with np.load(path, allow_pickle=False) as saved:
+            return (
+                len(saved["weights"]) == len(dataset)
+                and str(saved["fingerprint"]) == dataset_fingerprint(dataset)
+                and "settings_fingerprint" in saved
+                and str(saved["settings_fingerprint"])
+                == settings_fingerprint(settings)
+            )
+    except (KeyError, OSError, ValueError):
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/TLab/finetune_motion_body.conf")
@@ -252,6 +269,11 @@ def main():
     parser.add_argument("--max-plot-points", type=int, default=20000)
     parser.add_argument("--report-prefix", default=None,
                         help="prefix for per-window and per-cluster provenance CSVs")
+    parser.add_argument(
+        "--if-stale",
+        action="store_true",
+        help="reuse the output cache when its dataset and GMM settings still match",
+    )
     args = parser.parse_args()
 
     conf = ConfigFactory.parse_file(args.config)
@@ -278,6 +300,10 @@ def main():
         data_set_config=dataset_config, device="cpu"
     )
     drop_incomplete_tail_windows(dataset)
+    if args.if_stale and cache_is_current(output, dataset, settings):
+        print(f"GMM cache is current; reusing {output}")
+        return
+
     weights, details = compute_gmm_weights(dataset, **settings)
     details["dataset_split"] = np.asarray(args.dataset_split)
     os.makedirs(os.path.dirname(output) or ".", exist_ok=True)

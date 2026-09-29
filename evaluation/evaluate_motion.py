@@ -134,13 +134,17 @@ if __name__ == '__main__':
                 # Save per-flight velocity output aligned to gt timestamps.
                 save_flight_velocity_csv(csv_folder, save_key, gt_ts, net_vel)
 
+                velocity_rmse = torch.sqrt(
+                    inf_outstate['vel_dist'].square().mean()
+                ).item()
+
                 #save loss result
                 result_dic = {
                     'name': save_key,
                     'data_name': data_name,
                     'data_root': data_conf.data_root,
                     'ATE':torch.sqrt((inf_outstate['pos_dist']**2).mean()).item(),
-                    'AVE':inf_outstate['vel_dist'].mean().item(),
+                    'Velocity_RMSE': velocity_rmse,
                     'RP_RMSE': np.sqrt((inf_rte**2).mean()).numpy().item(),
                     }
                 
@@ -154,6 +158,7 @@ if __name__ == '__main__':
                 print("==============AirIO==============")
                 print("infstate:")
                 print("pos_err: ", inf_outstate['pos_dist'].mean())
+                print("velocity_rmse: ", velocity_rmse)
                 print("rte",inf_rte.mean())
 
             if data_conf.name == "BlackBird":
