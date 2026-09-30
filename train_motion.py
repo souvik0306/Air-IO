@@ -66,7 +66,9 @@ def test(network, loader, confs):
     network.eval() 
     with torch.no_grad():
         losses, pred_cov = 0, 0
-        dataset_losses = DatasetLossTracker(loader, confs, get_motion_RMSE)
+        dataset_losses = DatasetLossTracker(
+            loader, confs, get_motion_RMSE, track_motion_metrics=True
+        )
 
         t_range = tqdm.tqdm(loader)
         for i, (data, _, label) in enumerate(t_range):
@@ -94,9 +96,11 @@ def test(network, loader, confs):
 
             t_range.refresh()
             
+    overall_metrics = dataset_losses.overall_motion_metrics()
     return {
-        "loss": (losses / (i + 1)),
+        "loss": overall_metrics.get("loss", losses / (i + 1)),
         "cov": (pred_cov / (i + 1)),
+        **{key: value for key, value in overall_metrics.items() if key != "loss"},
         **dataset_losses.metrics(),
     }
 
@@ -104,7 +108,9 @@ def test(network, loader, confs):
 def evaluate(network, loader, confs, silent_tqdm=False):
     network.eval()
     evaluate_states, loss_states, labels = {}, {}, {}
-    dataset_losses = DatasetLossTracker(loader, confs, get_motion_RMSE)
+    dataset_losses = DatasetLossTracker(
+        loader, confs, get_motion_RMSE, track_motion_metrics=True
+    )
     pred_cov = []
     skip_key = None
 

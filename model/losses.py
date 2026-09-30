@@ -76,21 +76,17 @@ def get_motion_loss(inte_state, label, confs):
 
 
 def get_motion_RMSE(inte_state, label, confs):
-    '''
-    get the RMSE of the last state in one segment
-    '''
-    def _RMSE(x):
-        return torch.sqrt((x.norm(dim=-1)**2).mean())
+    """Return temporal velocity-vector RMSE for a batch of segments."""
     cov_loss = 0
-    dist = (inte_state['net_vel'] - label)
-    dist = torch.mean(dist,dim=-2)
-    loss = _RMSE(dist)[None,...]
+    dist = inte_state['net_vel'] - label
+    squared_vector_error = dist.square().sum(dim=-1)
+    loss = torch.sqrt(squared_vector_error.mean())[None]
     
     if confs.propcov:
         #velocity covariance.
         cov = inte_state['cov']
         cov_loss = cov.mean()
     
-    return {'loss': loss, 
+    return {'loss': loss,
             'dist': dist.norm(dim=-1).mean(),
             'cov_loss': cov_loss}

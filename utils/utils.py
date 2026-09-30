@@ -142,21 +142,25 @@ def write_wandb(header, objs, epoch_i):
         for k, v in objs.items():
             # Per-drive metrics are printed to the job log only; avoid creating
             # a separate W&B chart for every flight.
-            if isinstance(v, float) and not k.startswith("dataset/"):
+            if isinstance(v, float) and not k.startswith("dataset/") and not k.startswith("speed/"):
                 wandb.log({os.path.join(header, k): v}, epoch_i)
     else:
         wandb.log({header: objs}, step = epoch_i)
 
 
 class DatasetLossTracker:
-    """Accumulate sample-weighted losses by data drive and speed profile."""
+    """Accumulate losses and optional exact motion metrics by data drive."""
 
-    def __init__(self, loader, confs, loss_fn):
+    def __init__(self, loader, confs, loss_fn, track_motion_metrics=False):
         self.dataset_names = loader.dataset.dataset_names
         self.confs = confs
         self.loss_fn = loss_fn
+        self.track_motion_metrics = track_motion_metrics
         self.totals = {}
         self.speed_totals = {}
+        self.motion_totals = {}
+        self.speed_motion_totals = {}
+        self.overall_motion_total = None
         self.speed_bins = self._get_speed_bins(confs)
 
     @staticmethod
@@ -190,8 +194,85 @@ class DatasetLossTracker:
             }
         return state
 
+    @staticmethod
+    def _new_motion_total(prediction):
+        options = {"device": prediction.device, "dtype": torch.float64}
+        return {
+            "count": 0,
+            "squared_error": torch.zeros((), **options),
+            "prediction": torch.zeros(3, **options),
+            "target": torch.zeros(3, **options),
+            "prediction_squared": torch.zeros(3, **options),
+            "target_squared": torch.zeros(3, **options),
+            "cross_product": torch.zeros(3, **options),
+        }
+
+    @classmethod
+    def _update_motion_total(cls, total, prediction, target):
+        prediction = prediction.detach().reshape(-1, 3).to(torch.float64)
+        target = target.detach().reshape(-1, 3).to(torch.float64)
+        if total is None:
+            total = cls._new_motion_total(prediction)
+
+        error = prediction - target
+        total["count"] += prediction.shape[0]
+        total["squared_error"] += error.square().sum()
+        total["prediction"] += prediction.sum(dim=0)
+        total["target"] += target.sum(dim=0)
+        total["prediction_squared"] += prediction.square().sum(dim=0)
+        total["target_squared"] += target.square().sum(dim=0)
+        total["cross_product"] += (prediction * target).sum(dim=0)
+        return total
+
+    @staticmethod
+    def _motion_metrics(total):
+        count = total["count"]
+        eps = 1e-8
+        prediction_ss = (
+            total["prediction_squared"]
+            - total["prediction"].square() / count
+        ).clamp_min(0.0)
+        target_ss = (
+            total["target_squared"] - total["target"].square() / count
+        ).clamp_min(0.0)
+        covariance = (
+            total["cross_product"]
+            - total["prediction"] * total["target"] / count
+        )
+        correlation_denominator = torch.sqrt(prediction_ss * target_ss)
+        correlation = torch.where(
+            correlation_denominator > eps,
+            covariance / correlation_denominator,
+            torch.zeros_like(covariance),
+        ).clamp(-1.0, 1.0)
+        gain = total["cross_product"] / (
+            total["target_squared"] + eps
+        )
+        rmse = torch.sqrt(total["squared_error"] / count)
+        return rmse.item(), correlation.tolist(), gain.tolist()
+
+    def _add_motion_metrics(self, output, prefix, total):
+        rmse, correlation, gain = self._motion_metrics(total)
+        # Preserve the existing /loss API while making it the exact aggregate
+        # RMSE rather than an average of per-batch RMSE values.
+        output[f"{prefix}/loss"] = rmse
+        output[f"{prefix}/rmse"] = rmse
+        for index, axis in enumerate("xyz"):
+            output[f"{prefix}/correlation_{axis}"] = correlation[index]
+            output[f"{prefix}/gain_{axis}"] = gain[index]
+
     def update(self, dataset_ids, prediction, target):
         with torch.no_grad():
+            net_velocity = prediction.get("net_vel") if isinstance(prediction, dict) else None
+            if self.track_motion_metrics:
+                if net_velocity is None or net_velocity.shape[-1] != 3:
+                    raise ValueError(
+                        "Motion metrics require prediction['net_vel'] and a final xyz axis"
+                    )
+                self.overall_motion_total = self._update_motion_total(
+                    self.overall_motion_total, net_velocity, target
+                )
+
             for dataset_id in dataset_ids.unique():
                 mask = dataset_ids == dataset_id
                 source = self.dataset_names[dataset_id.item()]
@@ -204,6 +285,10 @@ class DatasetLossTracker:
                 entry = self.totals.setdefault(source, [0.0, 0])
                 entry[0] += loss * count
                 entry[1] += count
+                if self.track_motion_metrics:
+                    self.motion_totals[source] = self._update_motion_total(
+                        self.motion_totals.get(source), net_velocity[mask], target[mask]
+                    )
 
             # A sample is assigned using its mean ground-truth speed over the
             # window. The loss itself is unchanged and is recomputed on only
@@ -230,6 +315,22 @@ class DatasetLossTracker:
                 entry = self.speed_totals.setdefault(profile, [0.0, 0])
                 entry[0] += loss * count
                 entry[1] += count
+                if self.track_motion_metrics:
+                    self.speed_motion_totals[profile] = self._update_motion_total(
+                        self.speed_motion_totals.get(profile),
+                        net_velocity[mask],
+                        target[mask],
+                    )
+
+    def overall_motion_metrics(self):
+        if self.overall_motion_total is None:
+            return {}
+        rmse, correlation, gain = self._motion_metrics(self.overall_motion_total)
+        metrics = {"loss": rmse}
+        for index, axis in enumerate("xyz"):
+            metrics[f"correlation_{axis}"] = correlation[index]
+            metrics[f"gain_{axis}"] = gain[index]
+        return metrics
 
     def metrics(self):
         dataset_metrics = {
@@ -242,7 +343,13 @@ class DatasetLossTracker:
             for profile, (loss_sum, count) in self.speed_totals.items()
             if count
         }
-        return {**dataset_metrics, **speed_metrics}
+        metrics = {**dataset_metrics, **speed_metrics}
+        if self.track_motion_metrics:
+            for source, total in self.motion_totals.items():
+                self._add_motion_metrics(metrics, f"dataset/{source}", total)
+            for profile, total in self.speed_motion_totals.items():
+                self._add_motion_metrics(metrics, f"speed/{profile}", total)
+        return metrics
 
 
 def print_dataset_losses(split, metrics):
@@ -253,6 +360,11 @@ def print_dataset_losses(split, metrics):
         elif key.startswith("speed/") and key.endswith("/loss"):
             speed_profile = key[len("speed/") : -len("/loss")]
             print(f"{split} loss [speed {speed_profile}]: {value:f}")
+        elif key.startswith(("dataset/", "speed/")):
+            group = key.split("/", 1)[0]
+            name, metric = key.rsplit("/", 1)
+            name = name[len(group) + 1:]
+            print(f"{split} {metric} [{group} {name}]: {value:f}")
 
 def save_ckpt(network, optimizer, scheduler, epoch_i, test_loss, conf, save_best = False):
     if epoch_i%conf.train.save_freq==conf.train.save_freq-1:
