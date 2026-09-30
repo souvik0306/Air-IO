@@ -191,3 +191,4 @@ check_gravity_alignment.py
 sanity_tlab_first_rows.py
 airio_finetune.o*
 /gmm_weights/
+*.pickle
