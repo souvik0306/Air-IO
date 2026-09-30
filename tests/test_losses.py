@@ -3,7 +3,13 @@ from types import SimpleNamespace
 
 import torch
 
-from model.losses import concordance_correlation_loss, get_motion_RMSE
+from model.losses import (
+    concordance_correlation_loss,
+    get_motion_loss,
+    get_motion_RMSE,
+    normalized_squared_velocity_loss,
+    velocity_gain_loss,
+)
 from utils import DatasetLossTracker
 
 
@@ -59,6 +65,113 @@ class ConcordanceCorrelationLossTest(unittest.TestCase):
         loss = concordance_correlation_loss(prediction, self.target)
         loss.backward()
         self.assertTrue(torch.isfinite(prediction.grad).all())
+
+
+class VelocityGainLossTest(unittest.TestCase):
+    def setUp(self):
+        self.target = torch.tensor(
+            [[[0.2, 0.4, -0.3],
+              [0.3, 0.2, -0.1],
+              [0.4, -0.2, 0.2],
+              [0.5, -0.4, 0.4]]],
+            dtype=torch.float64,
+        )
+
+    def test_matching_gain_has_zero_loss(self):
+        loss = velocity_gain_loss(self.target, self.target)
+        self.assertLess(loss.item(), 1e-12)
+
+    def test_half_gain_has_quarter_loss(self):
+        loss = velocity_gain_loss(0.5 * self.target, self.target)
+        self.assertAlmostEqual(loss.item(), 0.25, places=7)
+
+    def test_near_zero_target_axes_are_ignored(self):
+        target = torch.zeros((1, 4, 3), dtype=torch.float64)
+        target[..., 0] = 0.2
+        target[..., 1] = 0.099
+        prediction = target.clone()
+        prediction[..., 1:] = 1000.0
+
+        loss = velocity_gain_loss(prediction, target, min_rms=0.1)
+
+        self.assertLess(loss.item(), 1e-12)
+
+    def test_mask_is_applied_per_window_and_axis(self):
+        target = torch.zeros((2, 4, 3), dtype=torch.float64)
+        target[0, :, 0] = 0.2
+        target[1, :, 1] = 0.05
+        prediction = torch.zeros_like(target)
+        prediction[0, :, 0] = 0.1
+        prediction[1, :, 1] = 100.0
+
+        loss = velocity_gain_loss(prediction, target, min_rms=0.1)
+
+        self.assertAlmostEqual(loss.item(), 0.25, places=7)
+
+    def test_each_valid_window_has_equal_weight(self):
+        target = torch.zeros((2, 4, 3), dtype=torch.float64)
+        target[0, :, 0] = 0.2
+        target[1, :, :] = 0.2
+        prediction = target.clone()
+        prediction[0, :, 0] = 0.0
+
+        loss = velocity_gain_loss(prediction, target, min_rms=0.1)
+
+        # Window 0 has loss 1 from its only valid axis; window 1 has loss 0
+        # across three valid axes. Each window receives one equal vote.
+        self.assertAlmostEqual(loss.item(), 0.5, places=7)
+
+    def test_constant_velocity_is_not_centered_out(self):
+        target = torch.full((1, 4, 3), 0.2, dtype=torch.float64)
+        prediction = torch.full_like(target, 0.1)
+
+        loss = velocity_gain_loss(prediction, target)
+
+        self.assertAlmostEqual(loss.item(), 0.25, places=7)
+
+    def test_loss_has_finite_prediction_gradients(self):
+        prediction = (0.5 * self.target).clone().requires_grad_()
+        loss = velocity_gain_loss(prediction, self.target)
+        loss.backward()
+
+        self.assertTrue(torch.isfinite(prediction.grad).all())
+        self.assertLess((prediction.grad * self.target).sum().item(), 0.0)
+
+    def test_all_masked_loss_remains_differentiable(self):
+        target = torch.zeros((2, 4, 3), dtype=torch.float64)
+        prediction = torch.ones_like(target, requires_grad=True)
+        loss = velocity_gain_loss(prediction, target)
+        loss.backward()
+
+        self.assertEqual(loss.item(), 0.0)
+        self.assertTrue(torch.equal(prediction.grad, torch.zeros_like(prediction)))
+
+    def test_gain_is_added_as_a_weighted_auxiliary_loss(self):
+        class Config(dict):
+            __getattr__ = dict.__getitem__
+
+        prediction = 0.5 * self.target
+        config = Config(
+            loss="normalized_squared_velocity",
+            s0=0.25,
+            ccc_weight=0.25,
+            ccc_tau=0.1,
+            gain_weight=0.05,
+            gain_min_rms=0.1,
+            propcov=False,
+            weight=1.0,
+        )
+        result = get_motion_loss({"net_vel": prediction}, self.target, config)
+        normalized, _ = normalized_squared_velocity_loss(
+            prediction, self.target, s0=0.25
+        )
+        expected = (
+            normalized
+            + 0.25 * concordance_correlation_loss(prediction, self.target, tau=0.1)
+            + 0.05 * velocity_gain_loss(prediction, self.target, min_rms=0.1)
+        )
+
+        self.assertTrue(torch.allclose(result["loss"], expected))
 
 
 class MotionEvaluationMetricsTest(unittest.TestCase):

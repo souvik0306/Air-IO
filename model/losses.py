@@ -46,6 +46,37 @@ def concordance_correlation_loss(pred, targ, tau=0.1, eps=1e-8):
     activity_weight = window_variance / (window_variance + tau ** 2)
     return (activity_weight * axis_loss).mean()
 
+
+def velocity_gain_loss(pred, targ, min_rms=0.1):
+    """Penalize per-window, per-axis velocity gain that differs from one."""
+    if pred.shape != targ.shape:
+        raise ValueError(
+            f"pred and targ must have the same shape, got {pred.shape} and {targ.shape}"
+        )
+    if pred.ndim < 2 or pred.shape[-1] != 3:
+        raise ValueError(
+            "pred and targ must have shape (..., time, 3) for x/y/z velocity"
+        )
+
+    target_energy = targ.square().mean(dim=-2)
+    cross = (pred * targ).mean(dim=-2)
+    valid_axis = target_energy >= min_rms ** 2
+    valid_weight = valid_axis.to(dtype=pred.dtype)
+    gain = cross / target_energy.clamp_min(min_rms ** 2)
+    gain_penalty = (gain - 1.0).square() * valid_weight
+
+    valid_axes_per_window = valid_weight.sum(dim=-1)
+    window_loss = (
+        gain_penalty.sum(dim=-1)
+        / valid_axes_per_window.clamp_min(1.0)
+    )
+    valid_window = (valid_axes_per_window > 0).to(dtype=pred.dtype)
+    return (
+        (window_loss * valid_window).sum()
+        / valid_window.sum().clamp_min(1.0)
+    )
+
+
 def get_motion_loss(inte_state, label, confs):
     ## The state loss for evaluation
     loss, cov_loss = 0, {}
@@ -56,6 +87,12 @@ def get_motion_loss(inte_state, label, confs):
         if "ccc_weight" in confs and confs.ccc_weight:
             vel_loss = vel_loss + confs.ccc_weight * concordance_correlation_loss(
                 inte_state['net_vel'], label, tau=confs.ccc_tau,
+            )
+        if "gain_weight" in confs and confs.gain_weight:
+            vel_loss = vel_loss + confs.gain_weight * velocity_gain_loss(
+                inte_state['net_vel'],
+                label,
+                min_rms=getattr(confs, "gain_min_rms", 0.1),
             )
     else:
         loss_fc = loss_fc_list[confs.loss]
